@@ -1,0 +1,6 @@
+src/lmdb/libraries/liblmdb/*
+!src/lmdb/libraries/liblmdb/lmdb.h
+!src/lmdb/libraries/liblmdb/midl.h
+!src/lmdb/libraries/liblmdb/mdb.c
+!src/lmdb/libraries/liblmdb/midl.c
+test_data/
