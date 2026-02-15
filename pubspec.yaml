@@ -1,5 +1,6 @@
 name: dart_lmdb
 description: "A LMDB Dart wrapper"
+repository: https://github.com/jakobkordez/dart_lmdb
 version: 0.9.12
 
 environment:
