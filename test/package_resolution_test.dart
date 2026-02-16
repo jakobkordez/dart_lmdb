@@ -7,7 +7,7 @@ void main() {
   group('Package Resolution Tests', () {
     test('can resolve dart_lmdb package path', () async {
       // Test the same package resolution logic used in fetch_native.dart
-      final packageUri = Uri.parse('package:dart_lmdb/lmdb.dart');
+      final packageUri = Uri.parse('package:dart_lmdb/dart_lmdb.dart');
       final resolvedUri = await Isolate.resolvePackageUri(packageUri);
 
       expect(
@@ -18,29 +18,29 @@ void main() {
 
       final filePath = resolvedUri!.toFilePath();
       // Use path.join for platform-independent path handling
-      final expectedEnding = path.join('lib', 'lmdb.dart');
+      final expectedEnding = path.join('lib', 'dart_lmdb.dart');
       expect(
         filePath.toLowerCase().endsWith(expectedEnding.toLowerCase()),
         isTrue,
-        reason: 'Should resolve to lmdb.dart within lib directory',
+        reason: 'Should resolve to dart_lmdb.dart within lib directory',
       );
 
-      // Extract package root (two levels up from lib/lmdb.dart)
+      // Extract package root (two levels up from lib/dart_lmdb.dart)
       final libDir = path.dirname(filePath);
       final packageRoot = path.dirname(libDir);
 
       expect(
         path.basename(libDir),
         equals('lib'),
-        reason: 'Parent directory of lmdb.dart should be "lib"',
+        reason: 'Parent directory of dart_lmdb.dart should be "lib"',
       );
 
       // Check that the resolved path actually exists
-      final lmdbFilePath = path.join(packageRoot, 'lib', 'lmdb.dart');
+      final lmdbFilePath = path.join(packageRoot, 'lib', 'dart_lmdb.dart');
       expect(
         File(lmdbFilePath).existsSync(),
         isTrue,
-        reason: 'Should resolve to an existing lmdb.dart file',
+        reason: 'Should resolve to an existing dart_lmdb.dart file',
       );
 
       // Verify native directory structure
@@ -68,7 +68,7 @@ void main() {
       final directPath = path.join('lib', 'src', 'native');
 
       // Method 2: Package resolution (new method)
-      final packageUri = Uri.parse('package:dart_lmdb/lmdb.dart');
+      final packageUri = Uri.parse('package:dart_lmdb/dart_lmdb.dart');
       final resolvedUri = await Isolate.resolvePackageUri(packageUri);
       final libDir = path.dirname(resolvedUri!.toFilePath());
       final packageRoot = path.dirname(libDir);
