@@ -13,6 +13,9 @@ import 'lmdb_cursor.dart';
 import 'lmdb_flags.dart';
 import 'lmdb_native.dart';
 
+/// Native library bindings
+final LMDBBindings _lib = LMDBNative.instance.lib;
+
 /// A high-level Dart interface for LMDB (Lightning Memory-Mapped Database).
 ///
 /// LMDB provides a Dart-friendly API for interacting with LMDB, featuring:
@@ -55,9 +58,6 @@ import 'lmdb_native.dart';
 /// }
 /// ```
 class LMDB {
-  /// Native library bindings
-  late final LMDBBindings _lib;
-
   /// The native LMDB environment pointer
   Pointer<MDB_env>? _env;
 
@@ -88,9 +88,7 @@ class LMDB {
   /// Creates a new LMDB instance and loads the native library.
   ///
   /// Note: Call [init] before performing any database operations.
-  LMDB() {
-    _lib = LMDBNative.instance.lib;
-  }
+  LMDB();
 
   /// Helper for FFI memory management with specific pointer types
   ///

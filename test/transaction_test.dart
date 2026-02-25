@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 import 'package:test/test.dart';
 import 'package:path/path.dart' as path;
@@ -307,6 +308,120 @@ void main() {
     db.close();
   });
 
+  test('Parallel read-only transactions with single environment', () async {
+    // Create LMDB instances
+    final db = LMDB();
+
+    // Initialize instance
+    db.init(
+      testDir.path,
+      config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
+    );
+
+    // First populate the database with some data
+    final writeTxn = db.txnStart();
+    try {
+      for (int i = 0; i < 100; i++) {
+        db.put(writeTxn, 'key$i', 'value$i'.codeUnits);
+      }
+      db.txnCommit(writeTxn);
+    } catch (e) {
+      db.txnAbort(writeTxn);
+      rethrow;
+    }
+
+    // Now perform parallel reads using different instances
+    final readFlags = LMDBFlagSet()..add(MDB_RDONLY);
+
+    // Start parallel read transactions on different instances
+    final results = await Future.wait([
+      // First range on first instance
+      Isolate.run(() async {
+        final txn = db.txnStart(flags: readFlags);
+        try {
+          final results = List.generate(30, (i) => db.get(txn, 'key$i'));
+          db.txnCommit(txn);
+          return results;
+        } catch (e) {
+          db.txnAbort(txn);
+          rethrow;
+        }
+      }),
+
+      // Second range on second instance
+      Isolate.run(() async {
+        final txn = db.txnStart(flags: readFlags);
+        try {
+          final results = List.generate(30, (i) => db.get(txn, 'key${i + 30}'));
+          db.txnCommit(txn);
+          return results;
+        } catch (e) {
+          db.txnAbort(txn);
+          rethrow;
+        }
+      }),
+
+      // Third range on third instance
+      Isolate.run(() async {
+        final txn = db.txnStart(flags: readFlags);
+        try {
+          final results = List.generate(40, (i) => db.get(txn, 'key${i + 60}'));
+          db.txnCommit(txn);
+          return results;
+        } catch (e) {
+          db.txnAbort(txn);
+          rethrow;
+        }
+      }),
+    ]);
+
+    for (int i = 0; i < 30; i++) {
+      expect(
+        String.fromCharCodes(results[0][i]!),
+        equals('value$i'),
+        reason: 'Mismatch in second instance range',
+      );
+    }
+    for (int i = 0; i < 30; i++) {
+      expect(
+        String.fromCharCodes(results[1][i]!),
+        equals('value${i + 30}'),
+        reason: 'Mismatch in second instance range',
+      );
+    }
+    for (int i = 0; i < 40; i++) {
+      expect(
+        String.fromCharCodes(results[2][i]!),
+        equals('value${i + 60}'),
+        reason: 'Mismatch in third instance range',
+      );
+    }
+
+    // Verify we can still write after parallel reads
+    final finalWriteTxn = db.txnStart();
+    try {
+      db.put(finalWriteTxn, 'final_key', 'final_value'.codeUnits);
+      db.txnCommit(finalWriteTxn);
+    } catch (e) {
+      db.txnAbort(finalWriteTxn);
+      rethrow;
+    }
+
+    // Verify the write is visible to other instances
+    final readTxn = db.txnStart(flags: readFlags);
+    try {
+      final result = db.get(readTxn, 'final_key');
+      expect(String.fromCharCodes(result!), equals('final_value'));
+      db.txnCommit(readTxn);
+    } catch (e) {
+      db.txnAbort(readTxn);
+      rethrow;
+    }
+
+    // Clean up
+    db.close();
+  });
+
   test('Parallel read-only transactions with multiple environments', () async {
     // Create multiple LMDB instances for parallel access
     final db1 = LMDB();
@@ -345,20 +460,14 @@ void main() {
     final readFlags = LMDBFlagSet()..add(MDB_RDONLY);
 
     // Start parallel read transactions on different instances
-    await Future.wait([
+    final results = await Future.wait([
       // First range on first instance
-      Future(() async {
+      Isolate.run(() async {
         final txn = db1.txnStart(flags: readFlags);
         try {
           final results = List.generate(30, (i) => db1.get(txn, 'key$i'));
-          for (int i = 0; i < 30; i++) {
-            expect(
-              String.fromCharCodes(results[i]!),
-              equals('value$i'),
-              reason: 'Mismatch in first instance range',
-            );
-          }
           db1.txnCommit(txn);
+          return results;
         } catch (e) {
           db1.txnAbort(txn);
           rethrow;
@@ -366,21 +475,15 @@ void main() {
       }),
 
       // Second range on second instance
-      Future(() async {
+      Isolate.run(() async {
         final txn = db2.txnStart(flags: readFlags);
         try {
           final results = List.generate(
             30,
             (i) => db2.get(txn, 'key${i + 30}'),
           );
-          for (int i = 0; i < 30; i++) {
-            expect(
-              String.fromCharCodes(results[i]!),
-              equals('value${i + 30}'),
-              reason: 'Mismatch in second instance range',
-            );
-          }
           db2.txnCommit(txn);
+          return results;
         } catch (e) {
           db2.txnAbort(txn);
           rethrow;
@@ -388,27 +491,43 @@ void main() {
       }),
 
       // Third range on third instance
-      Future(() async {
+      Isolate.run(() async {
         final txn = db3.txnStart(flags: readFlags);
         try {
           final results = List.generate(
             40,
             (i) => db3.get(txn, 'key${i + 60}'),
           );
-          for (int i = 0; i < 40; i++) {
-            expect(
-              String.fromCharCodes(results[i]!),
-              equals('value${i + 60}'),
-              reason: 'Mismatch in third instance range',
-            );
-          }
           db3.txnCommit(txn);
+          return results;
         } catch (e) {
           db3.txnAbort(txn);
           rethrow;
         }
       }),
     ]);
+
+    for (int i = 0; i < 30; i++) {
+      expect(
+        String.fromCharCodes(results[0][i]!),
+        equals('value$i'),
+        reason: 'Mismatch in second instance range',
+      );
+    }
+    for (int i = 0; i < 30; i++) {
+      expect(
+        String.fromCharCodes(results[1][i]!),
+        equals('value${i + 30}'),
+        reason: 'Mismatch in second instance range',
+      );
+    }
+    for (int i = 0; i < 40; i++) {
+      expect(
+        String.fromCharCodes(results[2][i]!),
+        equals('value${i + 60}'),
+        reason: 'Mismatch in third instance range',
+      );
+    }
 
     // Verify we can still write after parallel reads
     final finalWriteTxn = db1.txnStart();
@@ -459,7 +578,7 @@ void main() {
     // Run parallel operations that interact with each other
     await Future.wait([
       // Instance 1: Write data and verify reads from other instances
-      Future(() async {
+      Isolate.run(() async {
         for (int i = 0; i < 10; i++) {
           final writeTxn = db1.txnStart();
           try {
@@ -476,14 +595,14 @@ void main() {
       }),
 
       // Instance 2: Read data written by Instance 1 and write own data
-      Future(() async {
+      Isolate.run(() async {
         for (int i = 0; i < 10; i++) {
           // Read data written by Instance 1
           final readTxn = db2.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
           try {
             final result = db2.get(readTxn, 'key$i');
-            if (result != null) {
-              expect(String.fromCharCodes(result), equals('value$i'));
+            if (result != null && String.fromCharCodes(result) != 'value$i') {
+              throw Exception('Mismatch in value for key$i');
             }
             db2.txnCommit(readTxn);
           } catch (e) {
@@ -504,20 +623,21 @@ void main() {
       }),
 
       // Instance 3: Read data from both Instance 1 and 2
-      Future(() async {
+      Isolate.run(() async {
         for (int i = 0; i < 10; i++) {
           final readTxn = db3.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
           try {
             // Try to read data from Instance 1
             final result1 = db3.get(readTxn, 'key$i');
-            if (result1 != null) {
-              expect(String.fromCharCodes(result1), equals('value$i'));
+            if (result1 != null && String.fromCharCodes(result1) != 'value$i') {
+              throw Exception('Mismatch in value for key$i');
             }
 
             // Try to read data from Instance 2
             final result2 = db3.get(readTxn, 'db2_key$i');
-            if (result2 != null) {
-              expect(String.fromCharCodes(result2), equals('db2_value$i'));
+            if (result2 != null &&
+                String.fromCharCodes(result2) != 'db2_value$i') {
+              throw Exception('Mismatch in value for db2_key$i');
             }
 
             db3.txnCommit(readTxn);
