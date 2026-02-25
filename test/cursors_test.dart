@@ -669,7 +669,7 @@ void main() {
       final cursor = db.cursorOpen(txn);
       try {
         for (var entry in binaryData) {
-          db.cursorPut(cursor, entry.key, entry.value, 0);
+          db.cursorPut(cursor, entry.key, entry.value);
         }
       } finally {
         db.cursorClose(cursor);

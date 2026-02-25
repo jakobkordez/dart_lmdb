@@ -610,7 +610,7 @@ class LMDB {
 
           if (result == 0) {
             final data = dataVal.ref.mv_data.cast<Uint8>();
-            return data.asTypedList(dataVal.ref.mv_size).toList();
+            return data.asTypedList(dataVal.ref.mv_size);
           } else if (result == MDB_NOTFOUND) {
             return null;
           } else {
@@ -1419,14 +1419,12 @@ class LMDB {
           }
 
           return CursorEntry(
-            key: keyVal.ref.mv_data
-                .cast<Uint8>()
-                .asTypedList(keyVal.ref.mv_size)
-                .toList(),
-            data: dataVal.ref.mv_data
-                .cast<Uint8>()
-                .asTypedList(dataVal.ref.mv_size)
-                .toList(),
+            key: keyVal.ref.mv_data.cast<Uint8>().asTypedList(
+              keyVal.ref.mv_size,
+            ),
+            data: dataVal.ref.mv_data.cast<Uint8>().asTypedList(
+              dataVal.ref.mv_size,
+            ),
           );
         } finally {
           calloc.free(keyPtr);
@@ -1445,14 +1443,10 @@ class LMDB {
         }
 
         return CursorEntry(
-          key: keyVal.ref.mv_data
-              .cast<Uint8>()
-              .asTypedList(keyVal.ref.mv_size)
-              .toList(),
-          data: dataVal.ref.mv_data
-              .cast<Uint8>()
-              .asTypedList(dataVal.ref.mv_size)
-              .toList(),
+          key: keyVal.ref.mv_data.cast<Uint8>().asTypedList(keyVal.ref.mv_size),
+          data: dataVal.ref.mv_data.cast<Uint8>().asTypedList(
+            dataVal.ref.mv_size,
+          ),
         );
       }
     } finally {
@@ -1562,9 +1556,9 @@ class LMDB {
   void cursorPut(
     Pointer<MDB_cursor> cursor,
     List<int> key,
-    List<int> value,
-    int flags,
-  ) {
+    List<int> value, {
+    LMDBFlagSet? flags,
+  }) {
     final keyPtr = calloc<Uint8>(key.length);
     final valuePtr = calloc<Uint8>(value.length);
 
@@ -1583,7 +1577,12 @@ class LMDB {
           dataVal.ref.mv_size = value.length;
           dataVal.ref.mv_data = valuePtr.cast();
 
-          final result = _lib.mdb_cursor_put(cursor, keyVal, dataVal, flags);
+          final result = _lib.mdb_cursor_put(
+            cursor,
+            keyVal,
+            dataVal,
+            flags?.value ?? 0,
+          );
 
           if (result != 0) {
             throw LMDBException('Failed to put cursor data', result);
@@ -1615,10 +1614,15 @@ class LMDB {
   void cursorPutUtf8(
     Pointer<MDB_cursor> cursor,
     String key,
-    String value, [
-    int flags = 0,
-  ]) {
-    return cursorPut(cursor, utf8.encode(key), utf8.encode(value), flags);
+    String value, {
+    LMDBFlagSet? flags,
+  }) {
+    return cursorPut(
+      cursor,
+      utf8.encode(key),
+      utf8.encode(value),
+      flags: flags,
+    );
   }
 
   /// Deletes the entry at current cursor position
@@ -1635,8 +1639,8 @@ class LMDB {
   ///   db.cursorDelete(cursor);
   /// }
   /// ```
-  void cursorDelete(Pointer<MDB_cursor> cursor, [int flags = 0]) {
-    final result = _lib.mdb_cursor_del(cursor, flags);
+  void cursorDelete(Pointer<MDB_cursor> cursor, {LMDBFlagSet? flags}) {
+    final result = _lib.mdb_cursor_del(cursor, flags?.value ?? 0);
     if (result != 0) {
       throw LMDBException('Failed to delete at cursor', result);
     }
