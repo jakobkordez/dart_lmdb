@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
@@ -137,13 +136,13 @@ void main() {
 
         // Test specific key lookup
         final specificKey = 'user:2';
-        entry = db.cursorGet(cursor, utf8.encode(specificKey), CursorOp.set);
+        entry = db.cursorGet(cursor, specificKey, CursorOp.set);
         expect(entry, isNotNull);
         expect(entry?.keyAsString, equals(specificKey));
         expect(entry?.dataAsString, equals(testData[specificKey]));
 
         // Test range search
-        entry = db.cursorGet(cursor, utf8.encode('user:'), CursorOp.setRange);
+        entry = db.cursorGet(cursor, 'user:', CursorOp.setRange);
         expect(entry, isNotNull);
         expect(entry?.keyAsString, equals('user:1')); // Should find first user
       } finally {
@@ -160,7 +159,7 @@ void main() {
     try {
       final cursor = db.cursorOpen(deleteTxn);
       try {
-        db.cursorGet(cursor, utf8.encode('user:2'), CursorOp.set);
+        db.cursorGet(cursor, 'user:2', CursorOp.set);
         db.cursorDelete(cursor);
       } finally {
         db.cursorClose(cursor);
@@ -177,7 +176,7 @@ void main() {
       final cursor = db.cursorOpen(verifyTxn);
       try {
         // Verify deletion
-        final entry = db.cursorGet(cursor, utf8.encode('user:2'), CursorOp.set);
+        final entry = db.cursorGet(cursor, 'user:2', CursorOp.set);
         expect(entry, isNull);
 
         // Verify remaining count
@@ -254,11 +253,7 @@ void main() {
       try {
         // Test customer group
         var customerEntries = <String, String>{};
-        var entry = db.cursorGet(
-          cursor,
-          utf8.encode('customer:'),
-          CursorOp.setRange,
-        );
+        var entry = db.cursorGet(cursor, 'customer:', CursorOp.setRange);
 
         while (entry != null && entry.keyAsString.startsWith('customer:')) {
           customerEntries[entry.keyAsString] = entry.dataAsString;
@@ -273,11 +268,7 @@ void main() {
 
         // Test product group
         var productEntries = <String, String>{};
-        entry = db.cursorGet(
-          cursor,
-          utf8.encode('product:'),
-          CursorOp.setRange,
-        );
+        entry = db.cursorGet(cursor, 'product:', CursorOp.setRange);
 
         while (entry != null && entry.keyAsString.startsWith('product:')) {
           productEntries[entry.keyAsString] = entry.dataAsString;
@@ -292,7 +283,7 @@ void main() {
 
         // Test order group
         var orderEntries = <String, String>{};
-        entry = db.cursorGet(cursor, utf8.encode('order:'), CursorOp.setRange);
+        entry = db.cursorGet(cursor, 'order:', CursorOp.setRange);
 
         while (entry != null && entry.keyAsString.startsWith('order:')) {
           orderEntries[entry.keyAsString] = entry.dataAsString;
@@ -304,11 +295,7 @@ void main() {
 
         // Test specific customer data
         var customer2Data = <String, String>{};
-        entry = db.cursorGet(
-          cursor,
-          utf8.encode('customer:002:'),
-          CursorOp.setRange,
-        );
+        entry = db.cursorGet(cursor, 'customer:002:', CursorOp.setRange);
 
         while (entry != null && entry.keyAsString.startsWith('customer:002:')) {
           customer2Data[entry.keyAsString] = entry.dataAsString;
@@ -492,7 +479,7 @@ void main() {
 
           var entry = db.cursorGet(
             cursor,
-            utf8.encode('entry:$startDate'),
+            'entry:$startDate',
             CursorOp.setRange,
           );
 
@@ -571,11 +558,7 @@ void main() {
           // Get first entry - either from start or after the given key
           var entry = startAfterKey == null
               ? db.cursorGet(cursor, null, CursorOp.first)
-              : db.cursorGet(
-                  cursor,
-                  utf8.encode(startAfterKey),
-                  CursorOp.setRange,
-                );
+              : db.cursorGet(cursor, startAfterKey, CursorOp.setRange);
 
           // If we started from a specific key, we're already positioned at the next entry
           // No need for an extra next operation
@@ -652,25 +635,12 @@ void main() {
   });
 
   test('Cursor operations with binary data', () async {
-    // Binary test data
-    final binaryData = [
-      MapEntry(
-        [0x01, 0x02, 0x03], // Binary key
-        [0xFF, 0xFE, 0xFD], // Binary value
-      ),
-      MapEntry(
-        [0x10, 0x20, 0x30], // Binary key
-        [0xAA, 0xBB, 0xCC], // Binary value
-      ),
-    ];
-
     // Write binary data
     await _withTransaction(db, (txn) async {
       final cursor = db.cursorOpen(txn);
       try {
-        for (var entry in binaryData) {
-          db.cursorPut(cursor, entry.key, entry.value);
-        }
+        db.cursorPut(cursor, '123', [0xFF, 0xFE, 0xFD]);
+        db.cursorPut(cursor, '456', [0xAA, 0xBB, 0xCC]);
       } finally {
         db.cursorClose(cursor);
       }
@@ -682,11 +652,11 @@ void main() {
       try {
         var entry = db.cursorGet(cursor, null, CursorOp.first);
 
-        expect(entry?.key, equals([0x01, 0x02, 0x03]));
+        expect(entry?.keyAsString, equals('123'));
         expect(entry?.data, equals([0xFF, 0xFE, 0xFD]));
 
         entry = db.cursorGet(cursor, null, CursorOp.next);
-        expect(entry?.key, equals([0x10, 0x20, 0x30]));
+        expect(entry?.keyAsString, equals('456'));
         expect(entry?.data, equals([0xAA, 0xBB, 0xCC]));
       } finally {
         db.cursorClose(cursor);

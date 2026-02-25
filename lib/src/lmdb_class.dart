@@ -1390,68 +1390,41 @@ class LMDB {
   /// ```
   CursorEntry? cursorGet(
     Pointer<MDB_cursor> cursor,
-    List<int>? key,
+    String? key,
     CursorOp operation,
   ) {
     final keyVal = calloc<MDB_val>();
     final dataVal = calloc<MDB_val>();
+    final keyPtr = key?.toNativeUtf8();
 
     try {
-      if (key != null) {
-        final keyPtr = calloc<Uint8>(key.length);
-        try {
-          final keyList = keyPtr.asTypedList(key.length);
-          keyList.setAll(0, key);
-
-          keyVal.ref.mv_size = key.length;
-          keyVal.ref.mv_data = keyPtr.cast();
-
-          final result = _lib.mdb_cursor_get(
-            cursor,
-            keyVal,
-            dataVal,
-            operation.value,
-          );
-
-          if (result == MDB_NOTFOUND) return null;
-          if (result != 0) {
-            throw LMDBException('Cursor operation failed', result);
-          }
-
-          return CursorEntry(
-            key: keyVal.ref.mv_data.cast<Uint8>().asTypedList(
-              keyVal.ref.mv_size,
-            ),
-            data: dataVal.ref.mv_data.cast<Uint8>().asTypedList(
-              dataVal.ref.mv_size,
-            ),
-          );
-        } finally {
-          calloc.free(keyPtr);
-        }
-      } else {
-        final result = _lib.mdb_cursor_get(
-          cursor,
-          keyVal,
-          dataVal,
-          operation.value,
-        );
-
-        if (result == MDB_NOTFOUND) return null;
-        if (result != 0) {
-          throw LMDBException('Cursor operation failed', result);
-        }
-
-        return CursorEntry(
-          key: keyVal.ref.mv_data.cast<Uint8>().asTypedList(keyVal.ref.mv_size),
-          data: dataVal.ref.mv_data.cast<Uint8>().asTypedList(
-            dataVal.ref.mv_size,
-          ),
-        );
+      if (keyPtr != null) {
+        keyVal.ref.mv_size = key!.length;
+        keyVal.ref.mv_data = keyPtr.cast();
       }
+
+      final result = _lib.mdb_cursor_get(
+        cursor,
+        keyVal,
+        dataVal,
+        operation.value,
+      );
+
+      if (result == MDB_NOTFOUND) return null;
+      if (result != 0) {
+        throw LMDBException('Cursor operation failed', result);
+      }
+
+      return CursorEntry(
+        key: keyVal.ref.mv_data.cast<Uint8>().asTypedList(keyVal.ref.mv_size),
+        data: dataVal.ref.mv_data.cast<Uint8>().asTypedList(
+          dataVal.ref.mv_size,
+        ),
+      );
     } finally {
       calloc.free(keyVal);
       calloc.free(dataVal);
+      if (keyPtr != null) calloc.free(keyPtr);
     }
   }
 
@@ -1555,17 +1528,14 @@ class LMDB {
   /// ```
   void cursorPut(
     Pointer<MDB_cursor> cursor,
-    List<int> key,
+    String key,
     List<int> value, {
     LMDBFlagSet? flags,
   }) {
-    final keyPtr = calloc<Uint8>(key.length);
+    final keyPtr = key.toNativeUtf8();
     final valuePtr = calloc<Uint8>(value.length);
 
     try {
-      final keyList = keyPtr.asTypedList(key.length);
-      keyList.setAll(0, key);
-
       final valueList = valuePtr.asTypedList(value.length);
       valueList.setAll(0, value);
 
@@ -1617,12 +1587,7 @@ class LMDB {
     String value, {
     LMDBFlagSet? flags,
   }) {
-    return cursorPut(
-      cursor,
-      utf8.encode(key),
-      utf8.encode(value),
-      flags: flags,
-    );
+    return cursorPut(cursor, key, utf8.encode(value), flags: flags);
   }
 
   /// Deletes the entry at current cursor position
