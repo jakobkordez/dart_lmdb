@@ -31,7 +31,7 @@ void main() {
     db = LMDB();
     try {
       final config = LMDBInitConfig(mapSize: LMDBConfig.minMapSize);
-      await db.init(dbPath, config: config);
+      db.init(dbPath, config: config);
     } catch (e) {
       // If initialization fails, clean up and rethrow
       testDir.deleteSync(recursive: true);
@@ -66,8 +66,8 @@ void main() {
     final key = 'test_key';
     final value = 'test_value';
 
-    await db.putAuto(key, value.codeUnits);
-    final result = await db.getAuto(key);
+    db.putAuto(key, value.codeUnits);
+    final result = db.getAuto(key);
 
     expect(result, isNotNull);
     expect(String.fromCharCodes(result!), equals(value));
@@ -77,21 +77,21 @@ void main() {
     final key = 'test_key';
     final value = 'test_value';
 
-    await db.putAuto(key, value.codeUnits);
-    await db.deleteAuto(key);
-    final result = await db.getAuto(key);
+    db.putAuto(key, value.codeUnits);
+    db.deleteAuto(key);
+    final result = db.getAuto(key);
 
     expect(result, isNull);
   });
 
   test('Non-existent key returns null with auto transaction', () async {
-    final result = await db.getAuto('non_existent_key');
+    final result = db.getAuto('non_existent_key');
     expect(result, isNull);
   });
 
   test('UTF-8 string operations', () async {
     final db = LMDB();
-    await db.init(testDir.path);
+    db.init(testDir.path);
 
     // Test with different string types
     final testData = {
@@ -102,33 +102,33 @@ void main() {
     };
 
     // Write with explicit transaction
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
       for (var entry in testData.entries) {
-        await db.putUtf8(writeTxn, entry.key, entry.value);
+        db.putUtf8(writeTxn, entry.key, entry.value);
       }
-      await db.txnCommit(writeTxn);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // Read with explicit transaction
-    final readTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       for (var entry in testData.entries) {
-        final result = await db.getUtf8(readTxn, entry.key);
+        final result = db.getUtf8(readTxn, entry.key);
         expect(result, equals(entry.value));
       }
-      await db.txnCommit(readTxn);
+      db.txnCommit(readTxn);
     } catch (e) {
-      await db.txnAbort(readTxn);
+      db.txnAbort(readTxn);
       rethrow;
     }
 
     // Test with auto transactions
-    await db.putUtf8Auto('auto_key', 'Auto Transaction Test');
-    final autoResult = await db.getUtf8Auto('auto_key');
+    db.putUtf8Auto('auto_key', 'Auto Transaction Test');
+    final autoResult = db.getUtf8Auto('auto_key');
     expect(autoResult, equals('Auto Transaction Test'));
 
     db.close();

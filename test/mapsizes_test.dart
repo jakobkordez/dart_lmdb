@@ -38,25 +38,25 @@ void main() {
     final largeMapSize = 100 * 1024 * 1024; // 100MB
 
     // 1. Create and fill large DB
-    await db.init(testDir.path, config: LMDBInitConfig(mapSize: largeMapSize));
+    db.init(testDir.path, config: LMDBInitConfig(mapSize: largeMapSize));
 
-    var txn = await db.txnStart();
+    var txn = db.txnStart();
     try {
       // write ~75MB Daten
       for (var i = 0; i < 50000; i++) {
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        await db.put(txn, key, value);
+        db.put(txn, key, value);
       }
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
 
-      final stats = await db.statsAuto();
+      final stats = db.statsAuto();
       final actualSize =
           stats.pageSize *
           (stats.branchPages + stats.leafPages + stats.overflowPages);
       print('Actual DB size: ${actualSize / (1024 * 1024)} MB');
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     } finally {
       db.close();
@@ -64,37 +64,37 @@ void main() {
 
     // 2. open with smaller mapsize in READ-ONLY mode - should work:
     final smallMapSize = 1 * 1024 * 1024; // 1MB
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: smallMapSize),
       flags: LMDBFlagSet()..add(MDB_RDONLY),
     );
 
-    final readTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final data = await db.get(readTxn, 'key_1');
+      final data = db.get(readTxn, 'key_1');
       expect(data, isNotNull);
       expect(data!.length, equals(1024));
-      await db.txnCommit(readTxn);
+      db.txnCommit(readTxn);
     } catch (e) {
-      await db.txnAbort(readTxn);
+      db.txnAbort(readTxn);
       rethrow;
     } finally {
       db.close();
     }
 
     // 3. open with smaller mapsize and try writing - should fail:
-    await db.init(testDir.path, config: LMDBInitConfig(mapSize: smallMapSize));
+    db.init(testDir.path, config: LMDBInitConfig(mapSize: smallMapSize));
 
-    txn = await db.txnStart();
+    txn = db.txnStart();
     try {
-      await db.putUtf8(txn, 'new_key', 'test_value');
-      await db.txnCommit(txn);
+      db.putUtf8(txn, 'new_key', 'test_value');
+      db.txnCommit(txn);
       fail('Should not be able to write with smaller mapsize');
     } catch (e) {
       expect(e, isA<LMDBException>());
       expect((e as LMDBException).errorCode, equals(MDB_MAP_FULL));
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
     } finally {
       db.close();
     }
@@ -104,23 +104,23 @@ void main() {
     final db = LMDB();
     final smallMapSize = 1 * 1024 * 1024; // 1MB
 
-    await db.init(testDir.path, config: LMDBInitConfig(mapSize: smallMapSize));
+    db.init(testDir.path, config: LMDBInitConfig(mapSize: smallMapSize));
 
-    var txn = await db.txnStart();
+    var txn = db.txnStart();
     try {
       // try writing more than mapsize
       for (var i = 0; i < 2000; i++) {
         // write ~2MB
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        await db.put(txn, key, value);
+        db.put(txn, key, value);
       }
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
       fail('Should not be able to write beyond mapsize');
     } catch (e) {
       expect(e, isA<LMDBException>());
       expect((e as LMDBException).errorCode, equals(MDB_MAP_FULL));
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       print('Got expected MDB_MAP_FULL error when exceeding mapsize');
     } finally {
       db.close();
@@ -132,27 +132,24 @@ void main() {
 
     // 1. create db with small initial mapsize:
     final initialMapSize = 10 * 1024 * 1024; // 10MB
-    await db.init(
-      testDir.path,
-      config: LMDBInitConfig(mapSize: initialMapSize),
-    );
+    db.init(testDir.path, config: LMDBInitConfig(mapSize: initialMapSize));
 
     // fill db nearly to the limit:
-    var txn = await db.txnStart();
+    var txn = db.txnStart();
     try {
       for (var i = 0; i < 9; i++) {
         // ~9MB data
         final key = 'key_$i';
         final value = List.filled(1024 * 1024, 42); // 1KB per entry
-        await db.put(txn, key, value);
+        db.put(txn, key, value);
       }
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     }
-    await db.txnCommit(txn);
+    db.txnCommit(txn);
 
-    var stats = await db.statsAuto();
+    var stats = db.statsAuto();
     var actualSize =
         stats.pageSize *
         (stats.branchPages + stats.leafPages + stats.overflowPages);
@@ -162,20 +159,20 @@ void main() {
 
     // 2. open with bigger mapsize
     final largerMapSize = 20 * 1024 * 1024; // 20MB
-    await db.init(testDir.path, config: LMDBInitConfig(mapSize: largerMapSize));
+    db.init(testDir.path, config: LMDBInitConfig(mapSize: largerMapSize));
 
     // try writing more data
-    txn = await db.txnStart();
+    txn = db.txnStart();
     try {
       for (var i = 9000; i < 15000; i++) {
         // more ~6MB
         final key = 'key_$i';
         final value = List.filled(1024, 42);
-        await db.put(txn, key, value);
+        db.put(txn, key, value);
       }
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
 
-      stats = await db.statsAuto();
+      stats = db.statsAuto();
       actualSize =
           stats.pageSize *
           (stats.branchPages + stats.leafPages + stats.overflowPages);
@@ -184,7 +181,7 @@ void main() {
         'Successful growth from ${initialMapSize / (1024 * 1024)}MB to ${largerMapSize / (1024 * 1024)}MB mapsize',
       );
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       fail('Should be able to write with larger mapsize: $e');
     }
 
@@ -196,17 +193,17 @@ void main() {
     final largeMapSize = 100 * 1024 * 1024; // 100MB
 
     // 1. First create a large database
-    await db.init(testDir.path, config: LMDBInitConfig(mapSize: largeMapSize));
-    var txn = await db.txnStart();
+    db.init(testDir.path, config: LMDBInitConfig(mapSize: largeMapSize));
+    var txn = db.txnStart();
     try {
       // Write ~95MB data
       for (var i = 0; i < 55000; i++) {
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        await db.put(txn, key, value);
+        db.put(txn, key, value);
       }
-      await db.txnCommit(txn);
-      final stats = await db.statsAuto();
+      db.txnCommit(txn);
+      final stats = db.statsAuto();
       final actualSize =
           stats.pageSize *
           (stats.branchPages + stats.leafPages + stats.overflowPages);
@@ -217,46 +214,46 @@ void main() {
 
     // 2. Read with small MapSize
     final smallMapSize = 1 * 1024 * 1024; // 1MB
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: smallMapSize),
       flags: LMDBFlagSet()..add(MDB_RDONLY),
     );
 
     final stopwatch1 = Stopwatch()..start();
-    txn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    txn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       // Random access to data
       for (var i = 0; i < 1000; i++) {
         final randomKey = 'key_${Random().nextInt(50000)}';
-        final data = await db.get(txn, randomKey);
+        final data = db.get(txn, randomKey);
         expect(data, isNotNull);
       }
     } finally {
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
       db.close();
     }
     final smallMapSizeTime = stopwatch1.elapsed;
     print('Read time with small MapSize: ${smallMapSizeTime.inMilliseconds}ms');
 
     // 3. Read with large MapSize
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: largeMapSize),
       flags: LMDBFlagSet()..add(MDB_RDONLY),
     );
 
     final stopwatch2 = Stopwatch()..start();
-    txn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    txn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       // Same random access pattern
       for (var i = 0; i < 1000; i++) {
         final randomKey = 'key_${Random().nextInt(50000)}';
-        final data = await db.get(txn, randomKey);
+        final data = db.get(txn, randomKey);
         expect(data, isNotNull);
       }
     } finally {
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
       db.close();
     }
     final largeMapSizeTime = stopwatch2.elapsed;

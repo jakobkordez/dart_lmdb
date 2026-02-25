@@ -34,18 +34,18 @@ void main() {
 
     // First create and populate database
     final writeDb = LMDB();
-    await writeDb.init(
+    writeDb.init(
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, mode: "0o666"),
     );
-    await writeDb.putAuto('key', 'value'.codeUnits);
+    writeDb.putAuto('key', 'value'.codeUnits);
     writeDb.close();
 
     // Now open in read-only mode
     final readDb = LMDB();
     final readOnlyFlags = LMDBFlagSet.readOnly;
 
-    await readDb.init(
+    readDb.init(
       dbPath,
       config: LMDBInitConfig(
         mapSize: LMDBConfig.minMapSize,
@@ -56,7 +56,7 @@ void main() {
     );
 
     // Should be able to read
-    final result = await readDb.getAuto('key');
+    final result = readDb.getAuto('key');
     expect(String.fromCharCodes(result!), equals('value'));
 
     // Write operations should fail
@@ -72,30 +72,30 @@ void main() {
     final db = LMDB();
     final highPerfFlags = LMDBFlagSet.highPerformance;
 
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, maxDbs: 1),
       flags: highPerfFlags,
     );
 
     // Perform rapid writes
-    final txn = await db.txnStart();
+    final txn = db.txnStart();
     try {
       for (int i = 0; i < 1000; i++) {
-        await db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.put(txn, 'key$i', 'value$i'.codeUnits);
       }
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     }
 
     // Force sync to ensure data is written
-    await db.sync(true);
+    db.sync(true);
 
     // Verify data
     for (int i = 0; i < 1000; i++) {
-      final result = await db.getAuto('key$i');
+      final result = db.getAuto('key$i');
       expect(String.fromCharCodes(result!), equals('value$i'));
     }
 
@@ -109,10 +109,10 @@ void main() {
     final db = LMDB();
     final noSubdirFlags = LMDBFlagSet()..add(MDB_NOSUBDIR);
 
-    await db.init(dbFile.path, flags: noSubdirFlags);
+    db.init(dbFile.path, flags: noSubdirFlags);
 
-    await db.putAuto('key', 'value'.codeUnits);
-    final result = await db.getAuto('key');
+    db.putAuto('key', 'value'.codeUnits);
+    final result = db.getAuto('key');
 
     expect(String.fromCharCodes(result!), equals('value'));
     expect(dbFile.existsSync(), isTrue);
@@ -130,13 +130,13 @@ void main() {
       ..add(MDB_NOSUBDIR)
       ..add(MDB_NOSYNC); // Combine multiple flags
 
-    await writeDb.init(
+    writeDb.init(
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, maxDbs: 1),
       flags: writeFlags,
     );
 
-    await writeDb.putAuto('key', 'value'.codeUnits);
+    writeDb.putAuto('key', 'value'.codeUnits);
     writeDb.close();
 
     // Open same file read-only
@@ -145,13 +145,13 @@ void main() {
       ..add(MDB_NOSUBDIR)
       ..add(MDB_RDONLY);
 
-    await readDb.init(
+    readDb.init(
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, maxDbs: 1),
       flags: readFlags,
     );
 
-    final result = await readDb.getAuto('key');
+    final result = readDb.getAuto('key');
     expect(String.fromCharCodes(result!), equals('value'));
 
     // Write should fail
@@ -171,21 +171,21 @@ void main() {
     final db = LMDB();
     final writeMapFlags = LMDBFlagSet()..add(MDB_WRITEMAP);
 
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
       flags: writeMapFlags,
     );
 
     // Test write performance
-    final txn = await db.txnStart();
+    final txn = db.txnStart();
     try {
       for (int i = 0; i < 1000; i++) {
-        await db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.put(txn, 'key$i', 'value$i'.codeUnits);
       }
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     }
 
@@ -197,15 +197,15 @@ void main() {
 
     // First create and populate database
     final writeDb = LMDB();
-    await writeDb.init(
+    writeDb.init(
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
     );
 
     // Add some test data
-    await writeDb.putAuto('key1', 'value1'.codeUnits);
-    await writeDb.putAuto('key2', 'value2'.codeUnits);
-    await writeDb.putAuto('key3', 'value3'.codeUnits);
+    writeDb.putAuto('key1', 'value1'.codeUnits);
+    writeDb.putAuto('key2', 'value2'.codeUnits);
+    writeDb.putAuto('key3', 'value3'.codeUnits);
     writeDb.close();
 
     // Now open multiple read-only instances without locking
@@ -217,7 +217,7 @@ void main() {
     final readers = await Future.wait(
       List.generate(5, (index) async {
         final db = LMDB();
-        await db.init(
+        db.init(
           dbPath,
           config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
           flags: noLockFlags,
@@ -229,9 +229,9 @@ void main() {
     // Test concurrent reads from all instances
     await Future.wait(
       readers.map((db) async {
-        final result1 = await db.getAuto('key1');
-        final result2 = await db.getAuto('key2');
-        final result3 = await db.getAuto('key3');
+        final result1 = db.getAuto('key1');
+        final result2 = db.getAuto('key2');
+        final result3 = db.getAuto('key3');
 
         expect(String.fromCharCodes(result1!), equals('value1'));
         expect(String.fromCharCodes(result2!), equals('value2'));
@@ -249,7 +249,7 @@ void main() {
     final db = LMDB();
     final noTLSFlags = LMDBFlagSet()..add(MDB_NOTLS);
 
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
       flags: noTLSFlags,
@@ -258,16 +258,16 @@ void main() {
     // With MDB_NOTLS, we should test sequential transactions
     // as transactions cannot be shared between threads
     for (int i = 0; i < 10; i++) {
-      final txn = await db.txnStart();
+      final txn = db.txnStart();
       try {
-        await db.put(txn, 'key$i', 'value$i'.codeUnits);
-        await db.txnCommit(txn);
+        db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.txnCommit(txn);
 
         // Verify the write
-        final result = await db.getAuto('key$i');
+        final result = db.getAuto('key$i');
         expect(String.fromCharCodes(result!), equals('value$i'));
       } catch (e) {
-        await db.txnAbort(txn);
+        db.txnAbort(txn);
         rethrow;
       }
     }
@@ -279,35 +279,35 @@ void main() {
     final db = LMDB();
     final noTLSFlags = LMDBFlagSet()..add(MDB_NOTLS);
 
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
       flags: noTLSFlags,
     );
 
     // 1. Single write transaction should work
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
-      await db.put(writeTxn, 'key1', 'value1'.codeUnits);
-      await db.txnCommit(writeTxn);
+      db.put(writeTxn, 'key1', 'value1'.codeUnits);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // 2. Multiple read-only transactions should work with MDB_NOTLS
-    final txn1 = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
-    final txn2 = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final txn1 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final txn2 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
 
     try {
-      final result1 = await db.get(txn1, 'key1');
-      final result2 = await db.get(txn2, 'key1');
+      final result1 = db.get(txn1, 'key1');
+      final result2 = db.get(txn2, 'key1');
 
       expect(String.fromCharCodes(result1!), equals('value1'));
       expect(String.fromCharCodes(result2!), equals('value1'));
     } finally {
-      await db.txnAbort(txn1);
-      await db.txnAbort(txn2);
+      db.txnAbort(txn1);
+      db.txnAbort(txn2);
     }
 
     db.close();
@@ -317,7 +317,7 @@ void main() {
     final db = LMDB();
     final noMetaSyncFlags = LMDBFlagSet()..add(MDB_NOMETASYNC);
 
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
       flags: noMetaSyncFlags,
@@ -325,11 +325,11 @@ void main() {
 
     // Perform writes without metadata sync
     for (int i = 0; i < 100; i++) {
-      await db.putAuto('key$i', 'value$i'.codeUnits);
+      db.putAuto('key$i', 'value$i'.codeUnits);
     }
 
     // Force sync
-    await db.sync(true);
+    db.sync(true);
     db.close();
   });
 
@@ -337,7 +337,7 @@ void main() {
     final db = LMDB();
     final noReadAheadFlags = LMDBFlagSet()..add(MDB_NORDAHEAD);
 
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
       flags: noReadAheadFlags,
@@ -349,13 +349,13 @@ void main() {
 
     // First write all values
     for (var key in keys) {
-      await db.putAuto(key, 'value'.codeUnits);
+      db.putAuto(key, 'value'.codeUnits);
     }
 
     // Then read in random order
     for (int i = 0; i < 50; i++) {
       final randomKey = keys[random.nextInt(keys.length)];
-      final result = await db.getAuto(randomKey);
+      final result = db.getAuto(randomKey);
       expect(result, isNotNull);
     }
 
@@ -370,26 +370,26 @@ void main() {
       ..add(MDB_NORDAHEAD)
       ..add(MDB_NOSYNC);
 
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
       flags: combinedFlags,
     );
 
     // Test high-performance write scenario
-    final txn = await db.txnStart();
+    final txn = db.txnStart();
     try {
       for (int i = 0; i < 10000; i++) {
-        await db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.put(txn, 'key$i', 'value$i'.codeUnits);
       }
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     }
 
     // Force sync to ensure durability
-    await db.sync(true);
+    db.sync(true);
     db.close();
   });
 }

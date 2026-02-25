@@ -12,15 +12,15 @@ Future<T> _withTransaction<T>(
   Future<T> Function(Pointer<MDB_txn> txn) action, {
   bool readOnly = false,
 }) async {
-  final txn = await db.txnStart(
+  final txn = db.txnStart(
     flags: readOnly ? (LMDBFlagSet()..add(MDB_RDONLY)) : null,
   );
   try {
     final result = await action(txn);
-    await db.txnCommit(txn);
+    db.txnCommit(txn);
     return result;
   } catch (e) {
-    await db.txnAbort(txn);
+    db.txnAbort(txn);
     rethrow;
   }
 }
@@ -60,7 +60,7 @@ void main() {
     db = LMDB();
     try {
       final config = LMDBInitConfig(mapSize: LMDBConfig.minMapSize);
-      await db.init(dbPath, config: config);
+      db.init(dbPath, config: config);
     } catch (e) {
       // If initialization fails, clean up and rethrow
       testDir.deleteSync(recursive: true);
@@ -95,33 +95,33 @@ void main() {
     };
 
     // Write test data
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
-      final cursor = await db.cursorOpen(writeTxn);
+      final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testData.entries) {
-          await db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPutUtf8(cursor, entry.key, entry.value);
         }
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(writeTxn);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // Test reading operations
-    final readTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final cursor = await db.cursorOpen(readTxn);
+      final cursor = db.cursorOpen(readTxn);
       try {
         // Test cursor count
-        final count = await db.cursorCount(readTxn);
+        final count = db.cursorCount(readTxn);
         expect(count, equals(testData.length));
 
         // Test iteration through all entries
-        var entry = await db.cursorGet(cursor, null, CursorOp.first);
+        var entry = db.cursorGet(cursor, null, CursorOp.first);
         var foundEntries = 0;
         while (entry != null) {
           final key = entry.keyAsString;
@@ -131,76 +131,64 @@ void main() {
           expect(testData[key], equals(data));
 
           foundEntries++;
-          entry = await db.cursorGet(cursor, null, CursorOp.next);
+          entry = db.cursorGet(cursor, null, CursorOp.next);
         }
         expect(foundEntries, equals(testData.length));
 
         // Test specific key lookup
         final specificKey = 'user:2';
-        entry = await db.cursorGet(
-          cursor,
-          utf8.encode(specificKey),
-          CursorOp.set,
-        );
+        entry = db.cursorGet(cursor, utf8.encode(specificKey), CursorOp.set);
         expect(entry, isNotNull);
         expect(entry?.keyAsString, equals(specificKey));
         expect(entry?.dataAsString, equals(testData[specificKey]));
 
         // Test range search
-        entry = await db.cursorGet(
-          cursor,
-          utf8.encode('user:'),
-          CursorOp.setRange,
-        );
+        entry = db.cursorGet(cursor, utf8.encode('user:'), CursorOp.setRange);
         expect(entry, isNotNull);
         expect(entry?.keyAsString, equals('user:1')); // Should find first user
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(readTxn);
+      db.txnCommit(readTxn);
     } catch (e) {
-      await db.txnAbort(readTxn);
+      db.txnAbort(readTxn);
       rethrow;
     }
 
     // Test deletion in a separate write transaction
-    final deleteTxn = await db.txnStart();
+    final deleteTxn = db.txnStart();
     try {
-      final cursor = await db.cursorOpen(deleteTxn);
+      final cursor = db.cursorOpen(deleteTxn);
       try {
-        await db.cursorGet(cursor, utf8.encode('user:2'), CursorOp.set);
-        await db.cursorDelete(cursor);
+        db.cursorGet(cursor, utf8.encode('user:2'), CursorOp.set);
+        db.cursorDelete(cursor);
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(deleteTxn);
+      db.txnCommit(deleteTxn);
     } catch (e) {
-      await db.txnAbort(deleteTxn);
+      db.txnAbort(deleteTxn);
       rethrow;
     }
 
     // Verify deletion in a final read transaction
-    final verifyTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final verifyTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final cursor = await db.cursorOpen(verifyTxn);
+      final cursor = db.cursorOpen(verifyTxn);
       try {
         // Verify deletion
-        final entry = await db.cursorGet(
-          cursor,
-          utf8.encode('user:2'),
-          CursorOp.set,
-        );
+        final entry = db.cursorGet(cursor, utf8.encode('user:2'), CursorOp.set);
         expect(entry, isNull);
 
         // Verify remaining count
-        final newCount = await db.cursorCount(verifyTxn);
+        final newCount = db.cursorCount(verifyTxn);
         expect(newCount, equals(testData.length - 1));
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(verifyTxn);
+      db.txnCommit(verifyTxn);
     } catch (e) {
-      await db.txnAbort(verifyTxn);
+      db.txnAbort(verifyTxn);
       rethrow;
     }
   });
@@ -243,30 +231,30 @@ void main() {
     };
 
     // Write test data
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
-      final cursor = await db.cursorOpen(writeTxn);
+      final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testData.entries) {
-          await db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPutUtf8(cursor, entry.key, entry.value);
         }
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(writeTxn);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // Read and verify groups
-    final readTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final cursor = await db.cursorOpen(readTxn);
+      final cursor = db.cursorOpen(readTxn);
       try {
         // Test customer group
         var customerEntries = <String, String>{};
-        var entry = await db.cursorGet(
+        var entry = db.cursorGet(
           cursor,
           utf8.encode('customer:'),
           CursorOp.setRange,
@@ -274,7 +262,7 @@ void main() {
 
         while (entry != null && entry.keyAsString.startsWith('customer:')) {
           customerEntries[entry.keyAsString] = entry.dataAsString;
-          entry = await db.cursorGet(cursor, null, CursorOp.next);
+          entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
         expect(customerEntries.length, equals(9)); // 3 customers × 3 fields
@@ -285,7 +273,7 @@ void main() {
 
         // Test product group
         var productEntries = <String, String>{};
-        entry = await db.cursorGet(
+        entry = db.cursorGet(
           cursor,
           utf8.encode('product:'),
           CursorOp.setRange,
@@ -293,7 +281,7 @@ void main() {
 
         while (entry != null && entry.keyAsString.startsWith('product:')) {
           productEntries[entry.keyAsString] = entry.dataAsString;
-          entry = await db.cursorGet(cursor, null, CursorOp.next);
+          entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
         expect(productEntries.length, equals(9)); // 3 products × 3 fields
@@ -304,15 +292,11 @@ void main() {
 
         // Test order group
         var orderEntries = <String, String>{};
-        entry = await db.cursorGet(
-          cursor,
-          utf8.encode('order:'),
-          CursorOp.setRange,
-        );
+        entry = db.cursorGet(cursor, utf8.encode('order:'), CursorOp.setRange);
 
         while (entry != null && entry.keyAsString.startsWith('order:')) {
           orderEntries[entry.keyAsString] = entry.dataAsString;
-          entry = await db.cursorGet(cursor, null, CursorOp.next);
+          entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
         expect(orderEntries.length, equals(9)); // 3 orders × 3 fields
@@ -320,7 +304,7 @@ void main() {
 
         // Test specific customer data
         var customer2Data = <String, String>{};
-        entry = await db.cursorGet(
+        entry = db.cursorGet(
           cursor,
           utf8.encode('customer:002:'),
           CursorOp.setRange,
@@ -328,7 +312,7 @@ void main() {
 
         while (entry != null && entry.keyAsString.startsWith('customer:002:')) {
           customer2Data[entry.keyAsString] = entry.dataAsString;
-          entry = await db.cursorGet(cursor, null, CursorOp.next);
+          entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
         expect(customer2Data.length, equals(3));
@@ -358,9 +342,9 @@ void main() {
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(readTxn);
+      db.txnCommit(readTxn);
     } catch (e) {
-      await db.txnAbort(readTxn);
+      db.txnAbort(readTxn);
       rethrow;
     }
   });
@@ -373,26 +357,26 @@ void main() {
     });
 
     // Write test data
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
-      final cursor = await db.cursorOpen(writeTxn);
+      final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testEntries) {
-          await db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPutUtf8(cursor, entry.key, entry.value);
         }
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(writeTxn);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // Test pagination
-    final readTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final cursor = await db.cursorOpen(readTxn);
+      final cursor = db.cursorOpen(readTxn);
       try {
         // Test parameters
         const pageSize = 10;
@@ -403,17 +387,17 @@ void main() {
           final results = <CursorEntry>[];
 
           // Always start from the beginning for each page request
-          var entry = await db.cursorGet(cursor, null, CursorOp.first);
+          var entry = db.cursorGet(cursor, null, CursorOp.first);
 
           // Skip entries for the requested page
           for (var i = 0; i < pageNumber * pageSize && entry != null; i++) {
-            entry = await db.cursorGet(cursor, null, CursorOp.next);
+            entry = db.cursorGet(cursor, null, CursorOp.next);
           }
 
           // Collect entries for current page
           for (var i = 0; i < pageSize && entry != null; i++) {
             results.add(entry);
-            entry = await db.cursorGet(cursor, null, CursorOp.next);
+            entry = db.cursorGet(cursor, null, CursorOp.next);
           }
 
           return results;
@@ -462,9 +446,9 @@ void main() {
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(readTxn);
+      db.txnCommit(readTxn);
     } catch (e) {
-      await db.txnAbort(readTxn);
+      db.txnAbort(readTxn);
       rethrow;
     }
   });
@@ -478,26 +462,26 @@ void main() {
     });
 
     // Write test data
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
-      final cursor = await db.cursorOpen(writeTxn);
+      final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testEntries) {
-          await db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPutUtf8(cursor, entry.key, entry.value);
         }
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(writeTxn);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // Test range-based pagination
-    final readTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final cursor = await db.cursorOpen(readTxn);
+      final cursor = db.cursorOpen(readTxn);
       try {
         // Helper function to get entries within a date range
         Future<List<CursorEntry>> getEntriesInRange(
@@ -506,7 +490,7 @@ void main() {
         ) async {
           final results = <CursorEntry>[];
 
-          var entry = await db.cursorGet(
+          var entry = db.cursorGet(
             cursor,
             utf8.encode('entry:$startDate'),
             CursorOp.setRange,
@@ -515,7 +499,7 @@ void main() {
           while (entry != null &&
               entry.keyAsString.compareTo('entry:$endDate') <= 0) {
             results.add(entry);
-            entry = await db.cursorGet(cursor, null, CursorOp.next);
+            entry = db.cursorGet(cursor, null, CursorOp.next);
           }
 
           return results;
@@ -547,9 +531,9 @@ void main() {
       } finally {
         db.cursorClose(cursor);
       }
-      await db.txnCommit(readTxn);
+      db.txnCommit(readTxn);
     } catch (e) {
-      await db.txnAbort(readTxn);
+      db.txnAbort(readTxn);
       rethrow;
     }
   });
@@ -563,10 +547,10 @@ void main() {
 
     // Write test data
     await _withTransaction(db, (txn) async {
-      final cursor = await db.cursorOpen(txn);
+      final cursor = db.cursorOpen(txn);
       try {
         for (var entry in testEntries) {
-          await db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPutUtf8(cursor, entry.key, entry.value);
         }
       } finally {
         db.cursorClose(cursor);
@@ -575,7 +559,7 @@ void main() {
 
     // Test efficient pagination
     await _withTransaction(db, (txn) async {
-      final cursor = await db.cursorOpen(txn);
+      final cursor = db.cursorOpen(txn);
       try {
         const pageSize = 10;
 
@@ -586,8 +570,8 @@ void main() {
 
           // Get first entry - either from start or after the given key
           var entry = startAfterKey == null
-              ? await db.cursorGet(cursor, null, CursorOp.first)
-              : await db.cursorGet(
+              ? db.cursorGet(cursor, null, CursorOp.first)
+              : db.cursorGet(
                   cursor,
                   utf8.encode(startAfterKey),
                   CursorOp.setRange,
@@ -599,7 +583,7 @@ void main() {
           // Collect entries for current page
           while (entry != null && results.length < pageSize) {
             results.add(entry);
-            entry = await db.cursorGet(cursor, null, CursorOp.next);
+            entry = db.cursorGet(cursor, null, CursorOp.next);
           }
 
           // Get the key for the next page
@@ -682,10 +666,10 @@ void main() {
 
     // Write binary data
     await _withTransaction(db, (txn) async {
-      final cursor = await db.cursorOpen(txn);
+      final cursor = db.cursorOpen(txn);
       try {
         for (var entry in binaryData) {
-          await db.cursorPut(cursor, entry.key, entry.value, 0);
+          db.cursorPut(cursor, entry.key, entry.value, 0);
         }
       } finally {
         db.cursorClose(cursor);
@@ -694,14 +678,14 @@ void main() {
 
     // Read and verify binary data
     await _withTransaction(db, (txn) async {
-      final cursor = await db.cursorOpen(txn);
+      final cursor = db.cursorOpen(txn);
       try {
-        var entry = await db.cursorGet(cursor, null, CursorOp.first);
+        var entry = db.cursorGet(cursor, null, CursorOp.first);
 
         expect(entry?.key, equals([0x01, 0x02, 0x03]));
         expect(entry?.data, equals([0xFF, 0xFE, 0xFD]));
 
-        entry = await db.cursorGet(cursor, null, CursorOp.next);
+        entry = db.cursorGet(cursor, null, CursorOp.next);
         expect(entry?.key, equals([0x10, 0x20, 0x30]));
         expect(entry?.data, equals([0xAA, 0xBB, 0xCC]));
       } finally {

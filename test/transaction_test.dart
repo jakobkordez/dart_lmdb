@@ -31,7 +31,7 @@ void main() {
     db = LMDB();
     try {
       final config = LMDBInitConfig(mapSize: LMDBConfig.minMapSize);
-      await db.init(dbPath, config: config);
+      db.init(dbPath, config: config);
     } catch (e) {
       // If initialization fails, clean up and rethrow
       testDir.deleteSync(recursive: true);
@@ -58,39 +58,39 @@ void main() {
   });
 
   test('Multiple operations in single transaction', () async {
-    final txn = await db.txnStart();
+    final txn = db.txnStart();
     try {
       // Put multiple items
-      await db.put(txn, 'key1', 'value1'.codeUnits);
-      await db.put(txn, 'key2', 'value2'.codeUnits);
-      await db.put(txn, 'key3', 'value3'.codeUnits);
+      db.put(txn, 'key1', 'value1'.codeUnits);
+      db.put(txn, 'key2', 'value2'.codeUnits);
+      db.put(txn, 'key3', 'value3'.codeUnits);
 
       // Verify within same transaction
-      var result1 = await db.get(txn, 'key1');
-      var result2 = await db.get(txn, 'key2');
-      var result3 = await db.get(txn, 'key3');
+      var result1 = db.get(txn, 'key1');
+      var result2 = db.get(txn, 'key2');
+      var result3 = db.get(txn, 'key3');
 
       expect(String.fromCharCodes(result1!), equals('value1'));
       expect(String.fromCharCodes(result2!), equals('value2'));
       expect(String.fromCharCodes(result3!), equals('value3'));
 
       // Delete one item
-      await db.delete(txn, 'key2');
+      db.delete(txn, 'key2');
 
       // Verify deletion within transaction
-      result2 = await db.get(txn, 'key2');
+      result2 = db.get(txn, 'key2');
       expect(result2, isNull);
 
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     }
 
     // Verify after transaction commit
-    final result1 = await db.getAuto('key1');
-    final result2 = await db.getAuto('key2');
-    final result3 = await db.getAuto('key3');
+    final result1 = db.getAuto('key1');
+    final result2 = db.getAuto('key2');
+    final result3 = db.getAuto('key3');
 
     expect(String.fromCharCodes(result1!), equals('value1'));
     expect(result2, isNull);
@@ -99,31 +99,31 @@ void main() {
 
   test('Transaction rollback', () async {
     // First put some data with auto transaction
-    await db.putAuto('key1', 'initial_value'.codeUnits);
+    db.putAuto('key1', 'initial_value'.codeUnits);
 
     // Start a transaction and modify data
-    final txn = await db.txnStart();
+    final txn = db.txnStart();
     try {
-      await db.put(txn, 'key1', 'modified_value'.codeUnits);
-      await db.put(txn, 'key2', 'new_value'.codeUnits);
+      db.put(txn, 'key1', 'modified_value'.codeUnits);
+      db.put(txn, 'key2', 'new_value'.codeUnits);
 
       // Verify changes within transaction
-      var result1 = await db.get(txn, 'key1');
-      var result2 = await db.get(txn, 'key2');
+      var result1 = db.get(txn, 'key1');
+      var result2 = db.get(txn, 'key2');
 
       expect(String.fromCharCodes(result1!), equals('modified_value'));
       expect(String.fromCharCodes(result2!), equals('new_value'));
 
       // Abort transaction instead of committing
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     }
 
     // Verify that changes were rolled back
-    final result1 = await db.getAuto('key1');
-    final result2 = await db.getAuto('key2');
+    final result1 = db.getAuto('key1');
+    final result2 = db.getAuto('key2');
 
     expect(String.fromCharCodes(result1!), equals('initial_value'));
     expect(result2, isNull);
@@ -131,64 +131,62 @@ void main() {
 
   test('Normal transaction behavior (without MDB_NOTLS)', () async {
     final db = LMDB();
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
     );
 
     // 1. Write some initial data
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
-      await db.put(writeTxn, 'key1', 'value1'.codeUnits);
-      await db.txnCommit(writeTxn);
+      db.put(writeTxn, 'key1', 'value1'.codeUnits);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // 2. Sequential read transactions
-    final readTxn1 = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn1 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final result1 = await db.get(readTxn1, 'key1');
+      final result1 = db.get(readTxn1, 'key1');
       expect(String.fromCharCodes(result1!), equals('value1'));
-      await db.txnCommit(readTxn1);
+      db.txnCommit(readTxn1);
     } catch (e) {
-      await db.txnAbort(readTxn1);
+      db.txnAbort(readTxn1);
       rethrow;
     }
 
-    final readTxn2 = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn2 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final result2 = await db.get(readTxn2, 'key1');
+      final result2 = db.get(readTxn2, 'key1');
       expect(String.fromCharCodes(result2!), equals('value1'));
-      await db.txnCommit(readTxn2);
+      db.txnCommit(readTxn2);
     } catch (e) {
-      await db.txnAbort(readTxn2);
+      db.txnAbort(readTxn2);
       rethrow;
     }
 
     // 3. Another write transaction
-    final writeTxn2 = await db.txnStart();
+    final writeTxn2 = db.txnStart();
     try {
-      await db.put(writeTxn2, 'key2', 'value2'.codeUnits);
-      await db.txnCommit(writeTxn2);
+      db.put(writeTxn2, 'key2', 'value2'.codeUnits);
+      db.txnCommit(writeTxn2);
     } catch (e) {
-      await db.txnAbort(writeTxn2);
+      db.txnAbort(writeTxn2);
       rethrow;
     }
 
     // 4. Final read to verify all data
-    final finalReadTxn = await db.txnStart(
-      flags: LMDBFlagSet()..add(MDB_RDONLY),
-    );
+    final finalReadTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final result1 = await db.get(finalReadTxn, 'key1');
-      final result2 = await db.get(finalReadTxn, 'key2');
+      final result1 = db.get(finalReadTxn, 'key1');
+      final result2 = db.get(finalReadTxn, 'key2');
       expect(String.fromCharCodes(result1!), equals('value1'));
       expect(String.fromCharCodes(result2!), equals('value2'));
-      await db.txnCommit(finalReadTxn);
+      db.txnCommit(finalReadTxn);
     } catch (e) {
-      await db.txnAbort(finalReadTxn);
+      db.txnAbort(finalReadTxn);
       rethrow;
     }
 
@@ -197,7 +195,7 @@ void main() {
 
   test('Advanced transaction scenarios', () async {
     final db = LMDB();
-    await db.init(
+    db.init(
       testDir.path,
       config: LMDBInitConfig(
         mapSize: LMDBConfig.minMapSize,
@@ -206,113 +204,103 @@ void main() {
     );
 
     // 1. Nested read transactions during write
-    final writeTxn = await db.txnStart();
+    final writeTxn = db.txnStart();
     try {
-      await db.put(writeTxn, 'key1', 'value1'.codeUnits);
+      db.put(writeTxn, 'key1', 'value1'.codeUnits);
 
       // Start read transaction while write is in progress
-      final readTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+      final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
       try {
         // Should not see uncommitted data
-        final result = await db.get(readTxn, 'key1');
+        final result = db.get(readTxn, 'key1');
         expect(result, isNull);
-        await db.txnCommit(readTxn);
+        db.txnCommit(readTxn);
       } catch (e) {
-        await db.txnAbort(readTxn);
+        db.txnAbort(readTxn);
         rethrow;
       }
 
       // Complete write
-      await db.txnCommit(writeTxn);
+      db.txnCommit(writeTxn);
     } catch (e) {
-      await db.txnAbort(writeTxn);
+      db.txnAbort(writeTxn);
       rethrow;
     }
 
     // 2. Multiple database operations in single transaction
-    final multiDbTxn = await db.txnStart();
+    final multiDbTxn = db.txnStart();
     try {
       // Write to default database
-      await db.put(multiDbTxn, 'default_key', 'default_value'.codeUnits);
+      db.put(multiDbTxn, 'default_key', 'default_value'.codeUnits);
 
       // Write to named database
-      await db.put(
+      db.put(
         multiDbTxn,
         'named_key',
         'named_value'.codeUnits,
         dbName: 'named_db',
       );
 
-      await db.txnCommit(multiDbTxn);
+      db.txnCommit(multiDbTxn);
     } catch (e) {
-      await db.txnAbort(multiDbTxn);
+      db.txnAbort(multiDbTxn);
       rethrow;
     }
 
     // 3. Read from both databases in single transaction
-    final readBothTxn = await db.txnStart(
-      flags: LMDBFlagSet()..add(MDB_RDONLY),
-    );
+    final readBothTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final defaultResult = await db.get(readBothTxn, 'default_key');
-      final namedResult = await db.get(
-        readBothTxn,
-        'named_key',
-        dbName: 'named_db',
-      );
+      final defaultResult = db.get(readBothTxn, 'default_key');
+      final namedResult = db.get(readBothTxn, 'named_key', dbName: 'named_db');
 
       expect(String.fromCharCodes(defaultResult!), equals('default_value'));
       expect(String.fromCharCodes(namedResult!), equals('named_value'));
 
-      await db.txnCommit(readBothTxn);
+      db.txnCommit(readBothTxn);
     } catch (e) {
-      await db.txnAbort(readBothTxn);
+      db.txnAbort(readBothTxn);
       rethrow;
     }
 
     // 4. Transaction with multiple operations and conditional commit/abort
-    final complexTxn = await db.txnStart();
+    final complexTxn = db.txnStart();
     try {
-      await db.put(complexTxn, 'key_a', 'value_a'.codeUnits);
+      db.put(complexTxn, 'key_a', 'value_a'.codeUnits);
 
-      final existingValue = await db.get(complexTxn, 'key1');
+      final existingValue = db.get(complexTxn, 'key1');
       expect(String.fromCharCodes(existingValue!), equals('value1'));
 
-      await db.delete(complexTxn, 'key_a');
+      db.delete(complexTxn, 'key_a');
 
-      final deletedValue = await db.get(complexTxn, 'key_a');
+      final deletedValue = db.get(complexTxn, 'key_a');
       expect(deletedValue, isNull);
 
-      await db.txnCommit(complexTxn);
+      db.txnCommit(complexTxn);
     } catch (e) {
-      await db.txnAbort(complexTxn);
+      db.txnAbort(complexTxn);
       rethrow;
     }
 
     // 5. Verify final state with read-only transaction
-    final finalTxn = await db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final finalTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       // Check original data
-      final result1 = await db.get(finalTxn, 'key1');
+      final result1 = db.get(finalTxn, 'key1');
       expect(String.fromCharCodes(result1!), equals('value1'));
 
       // Check multi-db data
-      final defaultResult = await db.get(finalTxn, 'default_key');
-      final namedResult = await db.get(
-        finalTxn,
-        'named_key',
-        dbName: 'named_db',
-      );
+      final defaultResult = db.get(finalTxn, 'default_key');
+      final namedResult = db.get(finalTxn, 'named_key', dbName: 'named_db');
       expect(String.fromCharCodes(defaultResult!), equals('default_value'));
       expect(String.fromCharCodes(namedResult!), equals('named_value'));
 
       // Check deleted data
-      final deletedResult = await db.get(finalTxn, 'key_a');
+      final deletedResult = db.get(finalTxn, 'key_a');
       expect(deletedResult, isNull);
 
-      await db.txnCommit(finalTxn);
+      db.txnCommit(finalTxn);
     } catch (e) {
-      await db.txnAbort(finalTxn);
+      db.txnAbort(finalTxn);
       rethrow;
     }
 
@@ -326,30 +314,30 @@ void main() {
     final db3 = LMDB();
 
     // Initialize all instances with the same database
-    await db1.init(
+    db1.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
     );
 
-    await db2.init(
+    db2.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
     );
 
-    await db3.init(
+    db3.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
     );
 
     // First populate the database with some data using the first instance
-    final writeTxn = await db1.txnStart();
+    final writeTxn = db1.txnStart();
     try {
       for (int i = 0; i < 100; i++) {
-        await db1.put(writeTxn, 'key$i', 'value$i'.codeUnits);
+        db1.put(writeTxn, 'key$i', 'value$i'.codeUnits);
       }
-      await db1.txnCommit(writeTxn);
+      db1.txnCommit(writeTxn);
     } catch (e) {
-      await db1.txnAbort(writeTxn);
+      db1.txnAbort(writeTxn);
       rethrow;
     }
 
@@ -360,11 +348,9 @@ void main() {
     await Future.wait([
       // First range on first instance
       Future(() async {
-        final txn = await db1.txnStart(flags: readFlags);
+        final txn = db1.txnStart(flags: readFlags);
         try {
-          final results = await Future.wait(
-            List.generate(30, (i) => db1.get(txn, 'key$i')),
-          );
+          final results = List.generate(30, (i) => db1.get(txn, 'key$i'));
           for (int i = 0; i < 30; i++) {
             expect(
               String.fromCharCodes(results[i]!),
@@ -372,19 +358,20 @@ void main() {
               reason: 'Mismatch in first instance range',
             );
           }
-          await db1.txnCommit(txn);
+          db1.txnCommit(txn);
         } catch (e) {
-          await db1.txnAbort(txn);
+          db1.txnAbort(txn);
           rethrow;
         }
       }),
 
       // Second range on second instance
       Future(() async {
-        final txn = await db2.txnStart(flags: readFlags);
+        final txn = db2.txnStart(flags: readFlags);
         try {
-          final results = await Future.wait(
-            List.generate(30, (i) => db2.get(txn, 'key${i + 30}')),
+          final results = List.generate(
+            30,
+            (i) => db2.get(txn, 'key${i + 30}'),
           );
           for (int i = 0; i < 30; i++) {
             expect(
@@ -393,19 +380,20 @@ void main() {
               reason: 'Mismatch in second instance range',
             );
           }
-          await db2.txnCommit(txn);
+          db2.txnCommit(txn);
         } catch (e) {
-          await db2.txnAbort(txn);
+          db2.txnAbort(txn);
           rethrow;
         }
       }),
 
       // Third range on third instance
       Future(() async {
-        final txn = await db3.txnStart(flags: readFlags);
+        final txn = db3.txnStart(flags: readFlags);
         try {
-          final results = await Future.wait(
-            List.generate(40, (i) => db3.get(txn, 'key${i + 60}')),
+          final results = List.generate(
+            40,
+            (i) => db3.get(txn, 'key${i + 60}'),
           );
           for (int i = 0; i < 40; i++) {
             expect(
@@ -414,32 +402,32 @@ void main() {
               reason: 'Mismatch in third instance range',
             );
           }
-          await db3.txnCommit(txn);
+          db3.txnCommit(txn);
         } catch (e) {
-          await db3.txnAbort(txn);
+          db3.txnAbort(txn);
           rethrow;
         }
       }),
     ]);
 
     // Verify we can still write after parallel reads
-    final finalWriteTxn = await db1.txnStart();
+    final finalWriteTxn = db1.txnStart();
     try {
-      await db1.put(finalWriteTxn, 'final_key', 'final_value'.codeUnits);
-      await db1.txnCommit(finalWriteTxn);
+      db1.put(finalWriteTxn, 'final_key', 'final_value'.codeUnits);
+      db1.txnCommit(finalWriteTxn);
 
       // Verify the write is visible to other instances
-      final readTxn = await db2.txnStart(flags: readFlags);
+      final readTxn = db2.txnStart(flags: readFlags);
       try {
-        final result = await db2.get(readTxn, 'final_key');
+        final result = db2.get(readTxn, 'final_key');
         expect(String.fromCharCodes(result!), equals('final_value'));
-        await db2.txnCommit(readTxn);
+        db2.txnCommit(readTxn);
       } catch (e) {
-        await db2.txnAbort(readTxn);
+        db2.txnAbort(readTxn);
         rethrow;
       }
     } catch (e) {
-      await db1.txnAbort(finalWriteTxn);
+      db1.txnAbort(finalWriteTxn);
       rethrow;
     }
 
@@ -455,35 +443,33 @@ void main() {
     final db3 = LMDB();
 
     // Initialize all instances with the same database
-    await Future.wait([
-      db1.init(
-        testDir.path,
-        config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
-      ),
-      db2.init(
-        testDir.path,
-        config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
-      ),
-      db3.init(
-        testDir.path,
-        config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
-      ),
-    ]);
+    db1.init(
+      testDir.path,
+      config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
+    );
+    db2.init(
+      testDir.path,
+      config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
+    );
+    db3.init(
+      testDir.path,
+      config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize),
+    );
 
     // Run parallel operations that interact with each other
     await Future.wait([
       // Instance 1: Write data and verify reads from other instances
       Future(() async {
         for (int i = 0; i < 10; i++) {
-          final writeTxn = await db1.txnStart();
+          final writeTxn = db1.txnStart();
           try {
-            await db1.put(writeTxn, 'key$i', 'value$i'.codeUnits);
-            await db1.txnCommit(writeTxn);
+            db1.put(writeTxn, 'key$i', 'value$i'.codeUnits);
+            db1.txnCommit(writeTxn);
 
             // Give other instances a chance to read
             await Future.delayed(Duration(milliseconds: 10));
           } catch (e) {
-            await db1.txnAbort(writeTxn);
+            db1.txnAbort(writeTxn);
             rethrow;
           }
         }
@@ -493,27 +479,25 @@ void main() {
       Future(() async {
         for (int i = 0; i < 10; i++) {
           // Read data written by Instance 1
-          final readTxn = await db2.txnStart(
-            flags: LMDBFlagSet()..add(MDB_RDONLY),
-          );
+          final readTxn = db2.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
           try {
-            final result = await db2.get(readTxn, 'key$i');
+            final result = db2.get(readTxn, 'key$i');
             if (result != null) {
               expect(String.fromCharCodes(result), equals('value$i'));
             }
-            await db2.txnCommit(readTxn);
+            db2.txnCommit(readTxn);
           } catch (e) {
-            await db2.txnAbort(readTxn);
+            db2.txnAbort(readTxn);
             rethrow;
           }
 
           // Write own data
-          final writeTxn = await db2.txnStart();
+          final writeTxn = db2.txnStart();
           try {
-            await db2.put(writeTxn, 'db2_key$i', 'db2_value$i'.codeUnits);
-            await db2.txnCommit(writeTxn);
+            db2.put(writeTxn, 'db2_key$i', 'db2_value$i'.codeUnits);
+            db2.txnCommit(writeTxn);
           } catch (e) {
-            await db2.txnAbort(writeTxn);
+            db2.txnAbort(writeTxn);
             rethrow;
           }
         }
@@ -522,25 +506,23 @@ void main() {
       // Instance 3: Read data from both Instance 1 and 2
       Future(() async {
         for (int i = 0; i < 10; i++) {
-          final readTxn = await db3.txnStart(
-            flags: LMDBFlagSet()..add(MDB_RDONLY),
-          );
+          final readTxn = db3.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
           try {
             // Try to read data from Instance 1
-            final result1 = await db3.get(readTxn, 'key$i');
+            final result1 = db3.get(readTxn, 'key$i');
             if (result1 != null) {
               expect(String.fromCharCodes(result1), equals('value$i'));
             }
 
             // Try to read data from Instance 2
-            final result2 = await db3.get(readTxn, 'db2_key$i');
+            final result2 = db3.get(readTxn, 'db2_key$i');
             if (result2 != null) {
               expect(String.fromCharCodes(result2), equals('db2_value$i'));
             }
 
-            await db3.txnCommit(readTxn);
+            db3.txnCommit(readTxn);
           } catch (e) {
-            await db3.txnAbort(readTxn);
+            db3.txnAbort(readTxn);
             rethrow;
           }
 
@@ -551,23 +533,23 @@ void main() {
     ]);
 
     // Final verification of all data
-    final verifyTxn = await db1.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final verifyTxn = db1.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       // Verify data written by Instance 1
       for (int i = 0; i < 10; i++) {
-        final result1 = await db1.get(verifyTxn, 'key$i');
+        final result1 = db1.get(verifyTxn, 'key$i');
         expect(String.fromCharCodes(result1!), equals('value$i'));
       }
 
       // Verify data written by Instance 2
       for (int i = 0; i < 10; i++) {
-        final result2 = await db1.get(verifyTxn, 'db2_key$i');
+        final result2 = db1.get(verifyTxn, 'db2_key$i');
         expect(String.fromCharCodes(result2!), equals('db2_value$i'));
       }
 
-      await db1.txnCommit(verifyTxn);
+      db1.txnCommit(verifyTxn);
     } catch (e) {
-      await db1.txnAbort(verifyTxn);
+      db1.txnAbort(verifyTxn);
       rethrow;
     }
 

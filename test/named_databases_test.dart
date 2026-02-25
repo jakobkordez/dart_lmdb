@@ -31,7 +31,7 @@ void main() {
         mapSize: LMDBConfig.minMapSize,
         maxDbs: 5, // Support multiple named databases
       );
-      await db.init(dbPath, config: config);
+      db.init(dbPath, config: config);
     } catch (e) {
       testDir.deleteSync(recursive: true);
       rethrow;
@@ -47,14 +47,14 @@ void main() {
 
   test('Create and use multiple named databases', () async {
     // Use different named databases
-    await db.putAuto('key1', 'value1'.codeUnits, dbName: 'db1');
-    await db.putAuto('key1', 'value2'.codeUnits, dbName: 'db2');
-    await db.putAuto('key1', 'value3'.codeUnits); // default database
+    db.putAuto('key1', 'value1'.codeUnits, dbName: 'db1');
+    db.putAuto('key1', 'value2'.codeUnits, dbName: 'db2');
+    db.putAuto('key1', 'value3'.codeUnits); // default database
 
     // Verify values in different databases
-    final result1 = await db.getAuto('key1', dbName: 'db1');
-    final result2 = await db.getAuto('key1', dbName: 'db2');
-    final result3 = await db.getAuto('key1'); // default database
+    final result1 = db.getAuto('key1', dbName: 'db1');
+    final result2 = db.getAuto('key1', dbName: 'db2');
+    final result3 = db.getAuto('key1'); // default database
 
     expect(String.fromCharCodes(result1!), equals('value1'));
     expect(String.fromCharCodes(result2!), equals('value2'));
@@ -63,24 +63,24 @@ void main() {
 
   test('List named databases', () async {
     // Create several named databases
-    await db.putAuto('key', 'value'.codeUnits, dbName: 'db1');
-    await db.putAuto('key', 'value'.codeUnits, dbName: 'db2');
-    await db.putAuto('key', 'value'.codeUnits, dbName: 'db3');
+    db.putAuto('key', 'value'.codeUnits, dbName: 'db1');
+    db.putAuto('key', 'value'.codeUnits, dbName: 'db2');
+    db.putAuto('key', 'value'.codeUnits, dbName: 'db3');
 
-    final databases = await db.listDatabases();
+    final databases = db.listDatabases();
     expect(databases, containsAll(['db1', 'db2', 'db3']));
   });
 
   test('Database isolation', () async {
     // Put data in different databases
-    await db.putAuto('key', 'value1'.codeUnits, dbName: 'db1');
-    await db.putAuto('key', 'value2'.codeUnits, dbName: 'db2');
+    db.putAuto('key', 'value1'.codeUnits, dbName: 'db1');
+    db.putAuto('key', 'value2'.codeUnits, dbName: 'db2');
 
     // Delete from one database shouldn't affect others
-    await db.deleteAuto('key', dbName: 'db1');
+    db.deleteAuto('key', dbName: 'db1');
 
-    final result1 = await db.getAuto('key', dbName: 'db1');
-    final result2 = await db.getAuto('key', dbName: 'db2');
+    final result1 = db.getAuto('key', dbName: 'db1');
+    final result2 = db.getAuto('key', dbName: 'db2');
 
     expect(result1, isNull);
     expect(String.fromCharCodes(result2!), equals('value2'));

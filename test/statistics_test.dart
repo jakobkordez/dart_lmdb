@@ -32,7 +32,7 @@ void main() {
     db = LMDB();
     try {
       final config = LMDBInitConfig(mapSize: LMDBConfig.minMapSize);
-      await db.init(dbPath, config: config);
+      db.init(dbPath, config: config);
     } catch (e) {
       // If initialization fails, clean up and rethrow
       testDir.deleteSync(recursive: true);
@@ -59,23 +59,23 @@ void main() {
   });
 
   test('Basic database statistics', () async {
-    final txn = await db.txnStart();
+    final txn = db.txnStart();
     try {
       // Put some data
-      await db.put(txn, 'key1', 'value1'.codeUnits);
-      await db.put(txn, 'key2', 'value2'.codeUnits);
-      await db.put(txn, 'key3', 'value3'.codeUnits);
+      db.put(txn, 'key1', 'value1'.codeUnits);
+      db.put(txn, 'key2', 'value2'.codeUnits);
+      db.put(txn, 'key3', 'value3'.codeUnits);
 
       // Get stats within same transaction
-      final stats = await db.stats(txn);
+      final stats = db.stats(txn);
 
       expect(stats.entries, equals(3));
       expect(stats.depth, greaterThanOrEqualTo(1));
       expect(stats.leafPages, greaterThan(0));
 
-      await db.txnCommit(txn);
+      db.txnCommit(txn);
     } catch (e) {
-      await db.txnAbort(txn);
+      db.txnAbort(txn);
       rethrow;
     }
   });
@@ -110,7 +110,7 @@ void main() {
     );
 
     final largeDb = LMDB();
-    await largeDb.init(largeDbPath, config: config);
+    largeDb.init(largeDbPath, config: config);
 
     final random = Random();
 
@@ -122,7 +122,7 @@ void main() {
 
     try {
       // Initial check with auto-transaction
-      var stats = await largeDb.statsAuto();
+      var stats = largeDb.statsAuto();
       expect(stats.entries, equals(0));
 
       int lastCheckedDepth = 0;
@@ -133,7 +133,7 @@ void main() {
         batchStart <= totalEntries;
         batchStart += batchSize
       ) {
-        final txn = await largeDb.txnStart();
+        final txn = largeDb.txnStart();
         try {
           final batchEnd = min(batchStart + batchSize - 1, totalEntries);
           for (int i = batchStart; i <= batchEnd; i++) {
@@ -141,14 +141,14 @@ void main() {
             final valueLength = random.nextInt(900) + 100;
             final value = generateRandomValue(valueLength);
 
-            await largeDb.put(txn, key, value);
+            largeDb.put(txn, key, value);
           }
 
-          await largeDb.txnCommit(txn);
+          largeDb.txnCommit(txn);
 
           // Check statistics less frequently using auto-transaction
           if (batchEnd % checkInterval == 0) {
-            stats = await largeDb.statsAuto();
+            stats = largeDb.statsAuto();
 
             // Verify database consistency
             expect(stats.entries, equals(batchEnd));
@@ -166,18 +166,18 @@ void main() {
             lastCheckedDepth = stats.depth;
           }
         } catch (e) {
-          await largeDb.txnAbort(txn);
+          largeDb.txnAbort(txn);
           rethrow;
         }
       }
 
       // Final verification using auto-transaction
-      final finalStats = await largeDb.statsAuto();
+      final finalStats = largeDb.statsAuto();
       expect(finalStats.entries, equals(totalEntries));
       expect(finalStats.depth, greaterThan(1));
 
       print('\nFinal Database Analysis:');
-      print(await largeDb.analyzeUsage());
+      print(largeDb.analyzeUsage());
     } finally {
       largeDb.close();
       final dir = Directory(largeDbPath);
