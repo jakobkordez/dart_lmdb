@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, Process;
 
 import 'package:native_toolchain_c/native_toolchain_c.dart';
 import 'package:logging/logging.dart';
@@ -6,6 +6,17 @@ import 'package:hooks/hooks.dart';
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
+    final packageRoot = input.packageRoot.toFilePath();
+    final submodule = await Process.run(
+      'git',
+      ['submodule', 'update', '--init', '--recursive'],
+      runInShell: true,
+      workingDirectory: packageRoot,
+    );
+    if (submodule.exitCode != 0) {
+      throw Exception('Failed to update submodules: ${submodule.stderr}');
+    }
+
     final packageName = input.packageName;
     final cbuilder = CBuilder.library(
       name: packageName,
