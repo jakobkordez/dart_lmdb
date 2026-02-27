@@ -229,6 +229,15 @@ class LMDB {
           }
         }
 
+        final setMaxReadersResult = _lib.mdb_env_set_maxreaders(
+          env,
+          effectiveConfig.maxReaders,
+        );
+
+        if (setMaxReadersResult != 0) {
+          throw LMDBException('Failed to set max readers', setMaxReadersResult);
+        }
+
         final pathPtr = dbPath.toNativeUtf8();
         try {
           final openResult = _lib.mdb_env_open(

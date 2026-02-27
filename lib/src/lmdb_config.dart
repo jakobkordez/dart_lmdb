@@ -99,11 +99,13 @@ class LMDBConfig {
   /// print(LMDBConfig.analyzeUsage(stats));
   /// ```
   static String analyzeUsage(DatabaseStats stats) {
-    final branchToLeafRatio =
-        stats.leafPages > 0 ? stats.branchPages / stats.leafPages : 0.0;
+    final branchToLeafRatio = stats.leafPages > 0
+        ? stats.branchPages / stats.leafPages
+        : 0.0;
 
-    final averageEntriesPerLeafPage =
-        stats.leafPages > 0 ? stats.entries / stats.leafPages : 0.0;
+    final averageEntriesPerLeafPage = stats.leafPages > 0
+        ? stats.entries / stats.leafPages
+        : 0.0;
 
     return '''
 Database Usage Analysis:
@@ -136,10 +138,12 @@ Database Usage Analysis:
     return DatabaseEfficiency(
       totalEntries: stats.entries,
       treeDepth: stats.depth,
-      branchToLeafRatio:
-          stats.leafPages > 0 ? stats.branchPages / stats.leafPages : 0.0,
-      averageEntriesPerLeafPage:
-          stats.leafPages > 0 ? stats.entries / stats.leafPages : 0.0,
+      branchToLeafRatio: stats.leafPages > 0
+          ? stats.branchPages / stats.leafPages
+          : 0.0,
+      averageEntriesPerLeafPage: stats.leafPages > 0
+          ? stats.entries / stats.leafPages
+          : 0.0,
       hasOverflow: stats.overflowPages > 0,
     );
   }
@@ -224,6 +228,9 @@ class LMDBInitConfig {
   /// Maximum number of named databases
   final int maxDbs;
 
+  /// Maximum number of readers
+  final int maxReaders;
+
   /// File permissions in octal format (Unix)
   final String mode;
 
@@ -253,6 +260,7 @@ class LMDBInitConfig {
     required this.mapSize,
     this.maxDbs = 1,
     this.mode = "644",
+    this.maxReaders = 126,
   });
 
   /// Creates a configuration based on expected data characteristics.

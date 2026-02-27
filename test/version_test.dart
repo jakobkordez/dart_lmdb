@@ -17,7 +17,7 @@ void main() {
       final pubspecContent = await pubspecFile.readAsString();
       final pubspec = loadYaml(pubspecContent);
       final pubspecVersion = RegExp(
-        r'^\d+\.\d+\.\d+',
+        r'\d+\.\d+\.\d+$',
       ).firstMatch(pubspec['version'])!.group(0);
 
       // Compare with embedded version

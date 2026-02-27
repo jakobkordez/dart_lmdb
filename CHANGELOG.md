@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0+0.9.12
+
+- Add maxReaders option on init
+
 ## 1.0.1+0.9.12
 
 - Fix build hook
