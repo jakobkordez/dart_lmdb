@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1+0.9.12
+
+- Fix build hook
+
 ## 1.0.0+0.9.12
 
 - **BREAKING**: Remove async from synchronous (all) methods

@@ -13,7 +13,10 @@ void main(List<String> args) async {
       runInShell: true,
       workingDirectory: packageRoot,
     );
-    if (submodule.exitCode != 0) {
+    if (submodule.exitCode != 0 &&
+        !submodule.stderr.toString().startsWith(
+          'fatal: not a git repository',
+        )) {
       throw Exception('Failed to update submodules: ${submodule.stderr}');
     }
 
