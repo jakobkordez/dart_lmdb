@@ -47,25 +47,48 @@ void main() {
 
   test('Create and use multiple named databases', () async {
     // Use different named databases
-    db.putAuto('key1', 'value1'.codeUnits, dbName: 'db1');
-    db.putAuto('key1', 'value2'.codeUnits, dbName: 'db2');
-    db.putAuto('key1', 'value3'.codeUnits); // default database
+    db.putAuto(
+      LMDBVal.fromUtf8('key1'),
+      LMDBVal.fromUtf8('value1'),
+      dbName: 'db1',
+    );
+    db.putAuto(
+      LMDBVal.fromUtf8('key1'),
+      LMDBVal.fromUtf8('value2'),
+      dbName: 'db2',
+    );
+    db.putAuto(
+      LMDBVal.fromUtf8('key1'),
+      LMDBVal.fromUtf8('value3'),
+    ); // default database
 
     // Verify values in different databases
-    final result1 = db.getAuto('key1', dbName: 'db1');
-    final result2 = db.getAuto('key1', dbName: 'db2');
-    final result3 = db.getAuto('key1'); // default database
+    final result1 = db.getAuto(LMDBVal.fromUtf8('key1'), dbName: 'db1');
+    final result2 = db.getAuto(LMDBVal.fromUtf8('key1'), dbName: 'db2');
+    final result3 = db.getAuto(LMDBVal.fromUtf8('key1')); // default database
 
-    expect(String.fromCharCodes(result1!), equals('value1'));
-    expect(String.fromCharCodes(result2!), equals('value2'));
-    expect(String.fromCharCodes(result3!), equals('value3'));
+    expect(result1!.toStringUtf8(), equals('value1'));
+    expect(result2!.toStringUtf8(), equals('value2'));
+    expect(result3!.toStringUtf8(), equals('value3'));
   });
 
   test('List named databases', () async {
     // Create several named databases
-    db.putAuto('key', 'value'.codeUnits, dbName: 'db1');
-    db.putAuto('key', 'value'.codeUnits, dbName: 'db2');
-    db.putAuto('key', 'value'.codeUnits, dbName: 'db3');
+    db.putAuto(
+      LMDBVal.fromUtf8('key'),
+      LMDBVal.fromUtf8('value'),
+      dbName: 'db1',
+    );
+    db.putAuto(
+      LMDBVal.fromUtf8('key'),
+      LMDBVal.fromUtf8('value'),
+      dbName: 'db2',
+    );
+    db.putAuto(
+      LMDBVal.fromUtf8('key'),
+      LMDBVal.fromUtf8('value'),
+      dbName: 'db3',
+    );
 
     final databases = db.listDatabases();
     expect(databases, containsAll(['db1', 'db2', 'db3']));
@@ -73,16 +96,24 @@ void main() {
 
   test('Database isolation', () async {
     // Put data in different databases
-    db.putAuto('key', 'value1'.codeUnits, dbName: 'db1');
-    db.putAuto('key', 'value2'.codeUnits, dbName: 'db2');
+    db.putAuto(
+      LMDBVal.fromUtf8('key'),
+      LMDBVal.fromUtf8('value1'),
+      dbName: 'db1',
+    );
+    db.putAuto(
+      LMDBVal.fromUtf8('key'),
+      LMDBVal.fromUtf8('value2'),
+      dbName: 'db2',
+    );
 
     // Delete from one database shouldn't affect others
-    db.deleteAuto('key', dbName: 'db1');
+    db.deleteAuto(LMDBVal.fromUtf8('key'), dbName: 'db1');
 
-    final result1 = db.getAuto('key', dbName: 'db1');
-    final result2 = db.getAuto('key', dbName: 'db2');
+    final result1 = db.getAuto(LMDBVal.fromUtf8('key'), dbName: 'db1');
+    final result2 = db.getAuto(LMDBVal.fromUtf8('key'), dbName: 'db2');
 
     expect(result1, isNull);
-    expect(String.fromCharCodes(result2!), equals('value2'));
+    expect(result2!.toStringUtf8(), equals('value2'));
   });
 }

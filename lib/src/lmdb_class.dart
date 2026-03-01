@@ -1,11 +1,12 @@
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dart_lmdb/src/lmdb_val.dart';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 import 'generated_bindings.dart';
+import 'lmdb_entry.dart';
 import 'lmdb_exception.dart';
 import 'database_stats.dart';
 import 'lmdb_config.dart';
@@ -532,45 +533,25 @@ class LMDB {
   /// Throws [LMDBException] if operation fails
   void put(
     Pointer<MDB_txn> txn,
-    String key,
-    List<int> value, {
+    LMDBVal key,
+    LMDBVal value, {
     String? dbName,
     LMDBFlagSet? flags,
   }) {
     if (!isInitialized) throw StateError(_errDbNotInitialized);
 
     final dbi = _getDatabase(txn, name: dbName, flags: flags);
-    final keyPtr = key.toNativeUtf8();
-    final valuePtr = calloc<Uint8>(value.length);
 
-    try {
-      final valueList = valuePtr.asTypedList(value.length);
-      valueList.setAll(0, value);
+    final result = _lib.mdb_put(
+      txn,
+      dbi,
+      key.ptr,
+      value.ptr,
+      flags?.value ?? 0,
+    );
 
-      return _withAllocated<void, MDB_val>((keyVal) {
-        return _withAllocated<void, MDB_val>((dataVal) {
-          keyVal.ref.mv_size = keyPtr.length;
-          keyVal.ref.mv_data = keyPtr.cast();
-
-          dataVal.ref.mv_size = value.length;
-          dataVal.ref.mv_data = valuePtr.cast();
-
-          final result = _lib.mdb_put(
-            txn,
-            dbi,
-            keyVal,
-            dataVal,
-            flags?.value ?? 0,
-          );
-
-          if (result != 0) {
-            throw LMDBException('Failed to put data', result);
-          }
-        }, calloc<MDB_val>());
-      }, calloc<MDB_val>());
-    } finally {
-      calloc.free(keyPtr);
-      calloc.free(valuePtr);
+    if (result != 0) {
+      throw LMDBException('Failed to put data', result);
     }
   }
 
@@ -598,37 +579,26 @@ class LMDB {
   ///   rethrow;
   /// }
   /// ```
-  List<int>? get(
+  LMDBVal? get(
     Pointer<MDB_txn> txn,
-    String key, {
+    LMDBVal key, {
     String? dbName,
     LMDBFlagSet? flags,
   }) {
     if (!isInitialized) throw StateError(_errDbNotInitialized);
 
     final dbi = _getDatabase(txn, name: dbName, flags: flags);
-    final keyPtr = key.toNativeUtf8();
 
-    try {
-      return _withAllocated<List<int>?, MDB_val>((keyVal) {
-        return _withAllocated<List<int>?, MDB_val>((dataVal) {
-          keyVal.ref.mv_size = keyPtr.length;
-          keyVal.ref.mv_data = keyPtr.cast();
+    final data = LMDBVal.empty();
 
-          final result = _lib.mdb_get(txn, dbi, keyVal, dataVal);
+    final result = _lib.mdb_get(txn, dbi, key.ptr, data.ptr);
 
-          if (result == 0) {
-            final data = dataVal.ref.mv_data.cast<Uint8>();
-            return data.asTypedList(dataVal.ref.mv_size);
-          } else if (result == MDB_NOTFOUND) {
-            return null;
-          } else {
-            throw LMDBException('Failed to get data', result);
-          }
-        }, calloc<MDB_val>());
-      }, calloc<MDB_val>());
-    } finally {
-      calloc.free(keyPtr);
+    if (result == 0) {
+      return data;
+    } else if (result == MDB_NOTFOUND) {
+      return null;
+    } else {
+      throw LMDBException('Failed to get data', result);
     }
   }
 
@@ -655,96 +625,19 @@ class LMDB {
   /// Note: Does not throw if key doesn't exist
   void delete(
     Pointer<MDB_txn> txn,
-    String key, {
+    LMDBVal key, {
     String? dbName,
     LMDBFlagSet? flags,
   }) {
     if (!isInitialized) throw StateError(_errDbNotInitialized);
 
     final dbi = _getDatabase(txn, name: dbName, flags: flags);
-    final keyPtr = key.toNativeUtf8();
 
-    try {
-      return _withAllocated<void, MDB_val>((keyVal) {
-        keyVal.ref.mv_size = keyPtr.length;
-        keyVal.ref.mv_data = keyPtr.cast();
+    final result = _lib.mdb_del(txn, dbi, key.ptr, nullptr);
 
-        final result = _lib.mdb_del(txn, dbi, keyVal, nullptr);
-
-        if (result != 0 && result != MDB_NOTFOUND) {
-          throw LMDBException('Failed to delete data', result);
-        }
-      }, calloc<MDB_val>());
-    } finally {
-      calloc.free(keyPtr);
+    if (result != 0 && result != MDB_NOTFOUND) {
+      throw LMDBException('Failed to delete data', result);
     }
-  }
-
-  /// Stores a UTF-8 encoded string value in the database
-  ///
-  /// The [key] is used as UTF-8 encoded database key.
-  /// The [value] string will be UTF-8 encoded before storage.
-  ///
-  /// The optional [dbName] parameter specifies a named database.
-  /// If not provided, the default database will be used.
-  ///
-  /// The optional [flags] parameter allows setting specific LMDB flags for this operation.
-  ///
-  /// Example:
-  /// ```dart
-  /// final txn = db.txnStart();
-  /// try {
-  ///   db.putUtf8(txn, 'user_123', '{"name": "John", "age": 30}');
-  ///   db.txnCommit(txn);
-  /// } catch (e) {
-  ///   db.txnAbort(txn);
-  ///   rethrow;
-  /// }
-  /// ```
-  ///
-  /// Throws [StateError] if the database is closed.
-  /// Throws [LMDBException] if the operation fails.
-  void putUtf8(
-    Pointer<MDB_txn> txn,
-    String key,
-    String value, {
-    String? dbName,
-    LMDBFlagSet? flags,
-  }) {
-    put(txn, key, utf8.encode(value), dbName: dbName, flags: flags);
-  }
-
-  /// Retrieves a UTF-8 encoded string value from the database
-  ///
-  /// The [key] is used as UTF-8 encoded database key.
-  ///
-  /// The optional [dbName] parameter specifies a named database.
-  /// If not provided, the default database will be used.
-  ///
-  /// Returns the decoded UTF-8 string value, or null if the key doesn't exist.
-  ///
-  /// Example:
-  /// ```dart
-  /// final txn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
-  /// try {
-  ///   final json = db.getUtf8(txn, 'user_123');
-  ///   if (json != null) {
-  ///     final userData = jsonDecode(json);
-  ///     print('User name: ${userData['name']}');
-  ///   }
-  ///   db.txnCommit(txn);
-  /// } catch (e) {
-  ///   db.txnAbort(txn);
-  ///   rethrow;
-  /// }
-  /// ```
-  ///
-  /// Throws [StateError] if the database is closed.
-  /// Throws [LMDBException] if the operation fails.
-  /// Throws [FormatException] if the stored data is not valid UTF-8.
-  String? getUtf8(Pointer<MDB_txn> txn, String key, {String? dbName}) {
-    final result = get(txn, key, dbName: dbName);
-    return result != null ? utf8.decode(result) : null;
   }
 
   /// Convenience methods with automatic transaction management
@@ -769,8 +662,8 @@ class LMDB {
   /// Throws [StateError] if database is closed
   /// Throws [LMDBException] if operation fails
   void putAuto(
-    String key,
-    List<int> value, {
+    LMDBVal key,
+    LMDBVal value, {
     String? dbName,
     LMDBFlagSet? flags,
   }) {
@@ -799,7 +692,7 @@ class LMDB {
   ///
   /// Throws [StateError] if database is closed
   /// Throws [LMDBException] if operation fails
-  List<int>? getAuto(String key, {String? dbName}) {
+  LMDBVal? getAuto(LMDBVal key, {String? dbName}) {
     return _withTransaction(
       (txn) => get(txn, key, dbName: dbName),
       flags: LMDBFlagSet.readOnly,
@@ -818,84 +711,8 @@ class LMDB {
   /// ```
   /// Throws [StateError] if database is closed
   /// Throws [LMDBException] if operation fails
-  void deleteAuto(String key, {String? dbName}) {
+  void deleteAuto(LMDBVal key, {String? dbName}) {
     return _withTransaction((txn) => delete(txn, key, dbName: dbName));
-  }
-
-  /// Stores a UTF-8 string with automatic transaction management.
-  ///
-  /// Perfect for simple string storage operations where manual
-  /// transaction control isn't needed.
-  ///
-  /// The [key] is used as UTF-8 encoded database key.
-  /// The [value] string will be UTF-8 encoded before storage.
-  ///
-  /// The optional [dbName] parameter specifies a named database.
-  /// If not provided, the default database will be used.
-  ///
-  /// The optional [flags] parameter allows setting specific LMDB flags for this operation.
-  ///
-  /// This method handles the transaction automatically, including commit and abort
-  /// in case of errors.
-  ///
-  /// Example:
-  /// ```dart
-  /// // Simple string storage
-  /// db.putUtf8Auto('greeting', 'Hello, World!');
-  ///
-  /// // Store JSON data
-  /// final userData = {'name': 'John', 'age': 30};
-  /// db.putUtf8Auto('user_123', jsonEncode(userData));
-  /// ```
-  ///
-  /// Throws [StateError] if the database is closed.
-  /// Throws [LMDBException] if the operation fails.
-  void putUtf8Auto(
-    String key,
-    String value, {
-    String? dbName,
-    LMDBFlagSet? flags,
-  }) {
-    return _withTransaction((txn) {
-      return putUtf8(txn, key, value, dbName: dbName, flags: flags);
-    });
-  }
-
-  /// Retrieves a UTF-8 string with automatic transaction management.
-  ///
-  /// Uses an automatic read-only transaction.
-  ///
-  /// The [key] is used as UTF-8 encoded database key.
-  ///
-  /// The optional [dbName] parameter specifies a named database.
-  /// If not provided, the default database will be used.
-  ///
-  /// Returns the decoded UTF-8 string value, or null if the key doesn't exist.
-  ///
-  /// This method handles the transaction automatically, including commit and abort
-  /// in case of errors.
-  ///
-  /// Example:
-  /// ```dart
-  /// // Read simple string
-  /// final greeting = db.getUtf8Auto('greeting');
-  /// print(greeting); // Prints: Hello, World!
-  ///
-  /// // Read and parse JSON data
-  /// final jsonStr = db.getUtf8Auto('user_123');
-  /// if (jsonStr != null) {
-  ///   final userData = jsonDecode(jsonStr);
-  ///   print('User name: ${userData['name']}');
-  /// }
-  /// ```
-  ///
-  /// Throws [StateError] if the database is closed.
-  /// Throws [LMDBException] if the operation fails.
-  /// Throws [FormatException] if the stored data is not valid UTF-8.
-  String? getUtf8Auto(String key, {String? dbName}) {
-    return _withTransaction((txn) {
-      return getUtf8(txn, key, dbName: dbName);
-    }, flags: LMDBFlagSet.readOnly);
   }
 
   /// Gets database statistics with automatic transaction management.
@@ -1035,17 +852,15 @@ class LMDB {
 
   /// Retrieves the list of registered database names
   List<String> _getDbNames(Pointer<MDB_txn> txn) {
-    final value = get(txn, _dbNamesKey);
+    final value = get(txn, LMDBVal.fromUtf8(_dbNamesKey));
     if (value == null) return [];
-    return String.fromCharCodes(
-      value,
-    ).split(',').where((s) => s.isNotEmpty).toList();
+    return value.toStringUtf8().split(',').where((s) => s.isNotEmpty).toList();
   }
 
   /// Saves the list of database names
   void _saveDbNames(Pointer<MDB_txn> txn, List<String> names) {
     final namesString = names.join(',');
-    put(txn, _dbNamesKey, namesString.codeUnits);
+    put(txn, LMDBVal.fromUtf8(_dbNamesKey), LMDBVal.fromUtf8(namesString));
   }
 
   /// Gets a database handle, using cached value if available
@@ -1397,44 +1212,30 @@ class LMDB {
   ///   entry = db.cursorGet(cursor, null, CursorOp.next);
   /// }
   /// ```
-  CursorEntry? cursorGet(
+  LMDBEntry? cursorGet(
     Pointer<MDB_cursor> cursor,
-    String? key,
+    LMDBVal? key,
     CursorOp operation,
   ) {
-    final keyVal = calloc<MDB_val>();
-    final dataVal = calloc<MDB_val>();
-    final keyPtr = key?.toNativeUtf8();
+    final keyVal = key?.copy() ?? LMDBVal.empty();
+    final dataVal = LMDBVal.empty();
 
-    try {
-      if (keyPtr != null) {
-        keyVal.ref.mv_size = key!.length;
-        keyVal.ref.mv_data = keyPtr.cast();
-      }
+    final result = _lib.mdb_cursor_get(
+      cursor,
+      keyVal.ptr,
+      dataVal.ptr,
+      operation.value,
+    );
 
-      final result = _lib.mdb_cursor_get(
-        cursor,
-        keyVal,
-        dataVal,
-        operation.value,
-      );
-
-      if (result == MDB_NOTFOUND) return null;
-      if (result != 0) {
-        throw LMDBException('Cursor operation failed', result);
-      }
-
-      return CursorEntry(
-        key: keyVal.ref.mv_data.cast<Uint8>().asTypedList(keyVal.ref.mv_size),
-        data: dataVal.ref.mv_data.cast<Uint8>().asTypedList(
-          dataVal.ref.mv_size,
-        ),
-      );
-    } finally {
-      calloc.free(keyVal);
-      calloc.free(dataVal);
-      if (keyPtr != null) calloc.free(keyPtr);
+    if (result == MDB_NOTFOUND) return null;
+    if (result != 0) {
+      throw LMDBException('Cursor operation failed', result);
     }
+
+    return LMDBEntry(
+      key: keyVal.ptr == key?.ptr ? key! : keyVal,
+      data: dataVal,
+    );
   }
 
   /// Collects all keys from the specified database in a single tight loop.
@@ -1458,7 +1259,7 @@ class LMDB {
   ///   rethrow;
   /// }
   /// ```
-  List<Uint8List> getAllKeys(Pointer<MDB_txn> txn, {String? dbName}) {
+  List<LMDBVal> getAllKeys(Pointer<MDB_txn> txn, {String? dbName}) {
     if (!isInitialized) throw StateError(_errDbNotInitialized);
 
     // DBI resolution may need async (cache miss), but is typically instant.
@@ -1473,43 +1274,32 @@ class LMDB {
       final cursor = cursorPtr.value;
 
       try {
-        final keyVal = calloc<MDB_val>();
-        final dataVal = calloc<MDB_val>();
-        try {
-          final keys = <Uint8List>[];
+        final keyVal = LMDBVal.empty();
+        final dataVal = LMDBVal.empty();
+        final keys = <LMDBVal>[];
 
-          var result = _lib.mdb_cursor_get(
+        var result = _lib.mdb_cursor_get(
+          cursor,
+          keyVal.ptr,
+          dataVal.ptr,
+          CursorOp.first.value,
+        );
+
+        while (result == 0) {
+          keys.add(keyVal.copy());
+          result = _lib.mdb_cursor_get(
             cursor,
-            keyVal,
-            dataVal,
-            CursorOp.first.value,
+            keyVal.ptr,
+            dataVal.ptr,
+            CursorOp.next.value,
           );
-
-          while (result == 0) {
-            keys.add(
-              Uint8List.fromList(
-                keyVal.ref.mv_data.cast<Uint8>().asTypedList(
-                  keyVal.ref.mv_size,
-                ),
-              ),
-            );
-            result = _lib.mdb_cursor_get(
-              cursor,
-              keyVal,
-              dataVal,
-              CursorOp.next.value,
-            );
-          }
-
-          if (result != MDB_NOTFOUND) {
-            throw LMDBException('Cursor iteration failed', result);
-          }
-
-          return keys;
-        } finally {
-          calloc.free(keyVal);
-          calloc.free(dataVal);
         }
+
+        if (result != MDB_NOTFOUND) {
+          throw LMDBException('Cursor iteration failed', result);
+        }
+
+        return keys;
       } finally {
         _lib.mdb_cursor_close(cursor);
       }
@@ -1537,66 +1327,20 @@ class LMDB {
   /// ```
   void cursorPut(
     Pointer<MDB_cursor> cursor,
-    String key,
-    List<int> value, {
+    LMDBVal key,
+    LMDBVal value, {
     LMDBFlagSet? flags,
   }) {
-    final keyPtr = key.toNativeUtf8();
-    final valuePtr = calloc<Uint8>(value.length);
+    final result = _lib.mdb_cursor_put(
+      cursor,
+      key.ptr,
+      value.ptr,
+      flags?.value ?? 0,
+    );
 
-    try {
-      final valueList = valuePtr.asTypedList(value.length);
-      valueList.setAll(0, value);
-
-      return _withAllocated<void, MDB_val>((keyVal) {
-        return _withAllocated<void, MDB_val>((dataVal) {
-          keyVal.ref.mv_size = key.length;
-          keyVal.ref.mv_data = keyPtr.cast();
-
-          dataVal.ref.mv_size = value.length;
-          dataVal.ref.mv_data = valuePtr.cast();
-
-          final result = _lib.mdb_cursor_put(
-            cursor,
-            keyVal,
-            dataVal,
-            flags?.value ?? 0,
-          );
-
-          if (result != 0) {
-            throw LMDBException('Failed to put cursor data', result);
-          }
-        }, calloc<MDB_val>());
-      }, calloc<MDB_val>());
-    } finally {
-      calloc.free(keyPtr);
-      calloc.free(valuePtr);
+    if (result != 0) {
+      throw LMDBException('Failed to put cursor data', result);
     }
-  }
-
-  /// Convenience method to store UTF-8 strings using cursor
-  ///
-  /// Parameters:
-  /// * [cursor] - Active cursor
-  /// * [key] - Key string
-  /// * [value] - Value string
-  /// * [flags] - Optional operation flags
-  ///
-  /// Example:
-  /// ```dart
-  /// db.cursorPutUtf8(
-  /// cursor,
-  /// 'user:123',
-  /// '{"name": "John", "age": 30}'
-  /// );
-  /// ```
-  void cursorPutUtf8(
-    Pointer<MDB_cursor> cursor,
-    String key,
-    String value, {
-    LMDBFlagSet? flags,
-  }) {
-    return cursorPut(cursor, key, utf8.encode(value), flags: flags);
   }
 
   /// Deletes the entry at current cursor position

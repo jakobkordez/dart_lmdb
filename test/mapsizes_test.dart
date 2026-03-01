@@ -46,7 +46,7 @@ void main() {
       for (var i = 0; i < 50000; i++) {
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        db.put(txn, key, value);
+        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
       db.txnCommit(txn);
 
@@ -72,9 +72,9 @@ void main() {
 
     final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
-      final data = db.get(readTxn, 'key_1');
+      final data = db.get(readTxn, LMDBVal.fromUtf8('key_1'));
       expect(data, isNotNull);
-      expect(data!.length, equals(1024));
+      expect(data!.toBytes().length, equals(1024));
       db.txnCommit(readTxn);
     } catch (e) {
       db.txnAbort(readTxn);
@@ -88,7 +88,7 @@ void main() {
 
     txn = db.txnStart();
     try {
-      db.putUtf8(txn, 'new_key', 'test_value');
+      db.put(txn, LMDBVal.fromUtf8('new_key'), LMDBVal.fromUtf8('test_value'));
       db.txnCommit(txn);
       fail('Should not be able to write with smaller mapsize');
     } catch (e) {
@@ -113,7 +113,7 @@ void main() {
         // write ~2MB
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        db.put(txn, key, value);
+        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
       db.txnCommit(txn);
       fail('Should not be able to write beyond mapsize');
@@ -141,7 +141,7 @@ void main() {
         // ~9MB data
         final key = 'key_$i';
         final value = List.filled(1024 * 1024, 42); // 1KB per entry
-        db.put(txn, key, value);
+        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
     } catch (e) {
       db.txnAbort(txn);
@@ -168,7 +168,7 @@ void main() {
         // more ~6MB
         final key = 'key_$i';
         final value = List.filled(1024, 42);
-        db.put(txn, key, value);
+        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
       db.txnCommit(txn);
 
@@ -200,7 +200,7 @@ void main() {
       for (var i = 0; i < 55000; i++) {
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        db.put(txn, key, value);
+        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
       db.txnCommit(txn);
       final stats = db.statsAuto();
@@ -226,7 +226,7 @@ void main() {
       // Random access to data
       for (var i = 0; i < 1000; i++) {
         final randomKey = 'key_${Random().nextInt(50000)}';
-        final data = db.get(txn, randomKey);
+        final data = db.get(txn, LMDBVal.fromUtf8(randomKey));
         expect(data, isNotNull);
       }
     } finally {
@@ -249,7 +249,7 @@ void main() {
       // Same random access pattern
       for (var i = 0; i < 1000; i++) {
         final randomKey = 'key_${Random().nextInt(50000)}';
-        final data = db.get(txn, randomKey);
+        final data = db.get(txn, LMDBVal.fromUtf8(randomKey));
         expect(data, isNotNull);
       }
     } finally {

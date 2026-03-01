@@ -66,26 +66,26 @@ void main() {
     final key = 'test_key';
     final value = 'test_value';
 
-    db.putAuto(key, value.codeUnits);
-    final result = db.getAuto(key);
+    db.putAuto(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8(value));
+    final result = db.getAuto(LMDBVal.fromUtf8(key));
 
     expect(result, isNotNull);
-    expect(String.fromCharCodes(result!), equals(value));
+    expect(result!.toStringUtf8(), equals(value));
   });
 
   test('Delete data with auto transaction', () async {
     final key = 'test_key';
     final value = 'test_value';
 
-    db.putAuto(key, value.codeUnits);
-    db.deleteAuto(key);
-    final result = db.getAuto(key);
+    db.putAuto(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8(value));
+    db.deleteAuto(LMDBVal.fromUtf8(key));
+    final result = db.getAuto(LMDBVal.fromUtf8(key));
 
     expect(result, isNull);
   });
 
   test('Non-existent key returns null with auto transaction', () async {
-    final result = db.getAuto('non_existent_key');
+    final result = db.getAuto(LMDBVal.fromUtf8('non_existent_key'));
     expect(result, isNull);
   });
 
@@ -105,7 +105,11 @@ void main() {
     final writeTxn = db.txnStart();
     try {
       for (var entry in testData.entries) {
-        db.putUtf8(writeTxn, entry.key, entry.value);
+        db.put(
+          writeTxn,
+          LMDBVal.fromUtf8(entry.key),
+          LMDBVal.fromUtf8(entry.value),
+        );
       }
       db.txnCommit(writeTxn);
     } catch (e) {
@@ -117,8 +121,8 @@ void main() {
     final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       for (var entry in testData.entries) {
-        final result = db.getUtf8(readTxn, entry.key);
-        expect(result, equals(entry.value));
+        final result = db.get(readTxn, LMDBVal.fromUtf8(entry.key));
+        expect(result!.toStringUtf8(), equals(entry.value));
       }
       db.txnCommit(readTxn);
     } catch (e) {
@@ -127,9 +131,12 @@ void main() {
     }
 
     // Test with auto transactions
-    db.putUtf8Auto('auto_key', 'Auto Transaction Test');
-    final autoResult = db.getUtf8Auto('auto_key');
-    expect(autoResult, equals('Auto Transaction Test'));
+    db.putAuto(
+      LMDBVal.fromUtf8('auto_key'),
+      LMDBVal.fromUtf8('Auto Transaction Test'),
+    );
+    final autoResult = db.getAuto(LMDBVal.fromUtf8('auto_key'));
+    expect(autoResult!.toStringUtf8(), equals('Auto Transaction Test'));
 
     db.close();
   });

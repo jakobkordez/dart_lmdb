@@ -26,7 +26,7 @@ Future<T> _withTransaction<T>(
 
 // Helper class for pagination results
 class PageResult {
-  final List<CursorEntry> entries;
+  final List<LMDBEntry> entries;
   final String? nextPageKey;
 
   PageResult(this.entries, this.nextPageKey);
@@ -99,7 +99,11 @@ void main() {
       final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testData.entries) {
-          db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPut(
+            cursor,
+            LMDBVal.fromUtf8(entry.key),
+            LMDBVal.fromUtf8(entry.value),
+          );
         }
       } finally {
         db.cursorClose(cursor);
@@ -123,8 +127,8 @@ void main() {
         var entry = db.cursorGet(cursor, null, CursorOp.first);
         var foundEntries = 0;
         while (entry != null) {
-          final key = entry.keyAsString;
-          final data = entry.dataAsString;
+          final key = entry.key.toStringUtf8();
+          final data = entry.data.toStringUtf8();
 
           expect(testData.containsKey(key), isTrue);
           expect(testData[key], equals(data));
@@ -136,15 +140,26 @@ void main() {
 
         // Test specific key lookup
         final specificKey = 'user:2';
-        entry = db.cursorGet(cursor, specificKey, CursorOp.set);
+        entry = db.cursorGet(
+          cursor,
+          LMDBVal.fromUtf8(specificKey),
+          CursorOp.set,
+        );
         expect(entry, isNotNull);
-        expect(entry?.keyAsString, equals(specificKey));
-        expect(entry?.dataAsString, equals(testData[specificKey]));
+        expect(entry?.key.toStringUtf8(), equals(specificKey));
+        expect(entry?.data.toStringUtf8(), equals(testData[specificKey]));
 
         // Test range search
-        entry = db.cursorGet(cursor, 'user:', CursorOp.setRange);
+        entry = db.cursorGet(
+          cursor,
+          LMDBVal.fromUtf8('user:'),
+          CursorOp.setRange,
+        );
         expect(entry, isNotNull);
-        expect(entry?.keyAsString, equals('user:1')); // Should find first user
+        expect(
+          entry?.key.toStringUtf8(),
+          equals('user:1'),
+        ); // Should find first user
       } finally {
         db.cursorClose(cursor);
       }
@@ -159,7 +174,7 @@ void main() {
     try {
       final cursor = db.cursorOpen(deleteTxn);
       try {
-        db.cursorGet(cursor, 'user:2', CursorOp.set);
+        db.cursorGet(cursor, LMDBVal.fromUtf8('user:2'), CursorOp.set);
         db.cursorDelete(cursor);
       } finally {
         db.cursorClose(cursor);
@@ -176,7 +191,11 @@ void main() {
       final cursor = db.cursorOpen(verifyTxn);
       try {
         // Verify deletion
-        final entry = db.cursorGet(cursor, 'user:2', CursorOp.set);
+        final entry = db.cursorGet(
+          cursor,
+          LMDBVal.fromUtf8('user:2'),
+          CursorOp.set,
+        );
         expect(entry, isNull);
 
         // Verify remaining count
@@ -235,7 +254,11 @@ void main() {
       final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testData.entries) {
-          db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPut(
+            cursor,
+            LMDBVal.fromUtf8(entry.key),
+            LMDBVal.fromUtf8(entry.value),
+          );
         }
       } finally {
         db.cursorClose(cursor);
@@ -253,10 +276,15 @@ void main() {
       try {
         // Test customer group
         var customerEntries = <String, String>{};
-        var entry = db.cursorGet(cursor, 'customer:', CursorOp.setRange);
+        var entry = db.cursorGet(
+          cursor,
+          LMDBVal.fromUtf8('customer:'),
+          CursorOp.setRange,
+        );
 
-        while (entry != null && entry.keyAsString.startsWith('customer:')) {
-          customerEntries[entry.keyAsString] = entry.dataAsString;
+        while (entry != null &&
+            entry.key.toStringUtf8().startsWith('customer:')) {
+          customerEntries[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -268,10 +296,15 @@ void main() {
 
         // Test product group
         var productEntries = <String, String>{};
-        entry = db.cursorGet(cursor, 'product:', CursorOp.setRange);
+        entry = db.cursorGet(
+          cursor,
+          LMDBVal.fromUtf8('product:'),
+          CursorOp.setRange,
+        );
 
-        while (entry != null && entry.keyAsString.startsWith('product:')) {
-          productEntries[entry.keyAsString] = entry.dataAsString;
+        while (entry != null &&
+            entry.key.toStringUtf8().startsWith('product:')) {
+          productEntries[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -283,10 +316,14 @@ void main() {
 
         // Test order group
         var orderEntries = <String, String>{};
-        entry = db.cursorGet(cursor, 'order:', CursorOp.setRange);
+        entry = db.cursorGet(
+          cursor,
+          LMDBVal.fromUtf8('order:'),
+          CursorOp.setRange,
+        );
 
-        while (entry != null && entry.keyAsString.startsWith('order:')) {
-          orderEntries[entry.keyAsString] = entry.dataAsString;
+        while (entry != null && entry.key.toStringUtf8().startsWith('order:')) {
+          orderEntries[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -295,10 +332,15 @@ void main() {
 
         // Test specific customer data
         var customer2Data = <String, String>{};
-        entry = db.cursorGet(cursor, 'customer:002:', CursorOp.setRange);
+        entry = db.cursorGet(
+          cursor,
+          LMDBVal.fromUtf8('customer:002:'),
+          CursorOp.setRange,
+        );
 
-        while (entry != null && entry.keyAsString.startsWith('customer:002:')) {
-          customer2Data[entry.keyAsString] = entry.dataAsString;
+        while (entry != null &&
+            entry.key.toStringUtf8().startsWith('customer:002:')) {
+          customer2Data[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -349,7 +391,11 @@ void main() {
       final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testEntries) {
-          db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPut(
+            cursor,
+            LMDBVal.fromUtf8(entry.key),
+            LMDBVal.fromUtf8(entry.value),
+          );
         }
       } finally {
         db.cursorClose(cursor);
@@ -370,8 +416,8 @@ void main() {
         final totalPages = (testEntries.length / pageSize).ceil();
 
         // Helper function to get a page of results
-        Future<List<CursorEntry>> getPage(int pageNumber) async {
-          final results = <CursorEntry>[];
+        Future<List<LMDBEntry>> getPage(int pageNumber) async {
+          final results = <LMDBEntry>[];
 
           // Always start from the beginning for each page request
           var entry = db.cursorGet(cursor, null, CursorOp.first);
@@ -393,23 +439,23 @@ void main() {
         // Test first page (0-9)
         final firstPage = await getPage(0);
         expect(firstPage.length, equals(pageSize));
-        expect(firstPage.first.keyAsString, equals('key:000'));
-        expect(firstPage.last.keyAsString, equals('key:009'));
+        expect(firstPage.first.key.toStringUtf8(), equals('key:000'));
+        expect(firstPage.last.key.toStringUtf8(), equals('key:009'));
 
         // Test middle page (50-59)
         final middlePage = await getPage(5);
         expect(middlePage.length, equals(pageSize));
-        expect(middlePage.first.keyAsString, equals('key:050'));
-        expect(middlePage.last.keyAsString, equals('key:059'));
+        expect(middlePage.first.key.toStringUtf8(), equals('key:050'));
+        expect(middlePage.last.key.toStringUtf8(), equals('key:059'));
 
         // Test last page (90-99)
         final lastPage = await getPage(9);
         expect(lastPage.length, equals(pageSize));
-        expect(lastPage.first.keyAsString, equals('key:090'));
-        expect(lastPage.last.keyAsString, equals('key:099'));
+        expect(lastPage.first.key.toStringUtf8(), equals('key:090'));
+        expect(lastPage.last.key.toStringUtf8(), equals('key:099'));
 
         // Verify sequential access of all pages
-        var allEntries = <CursorEntry>[];
+        var allEntries = <LMDBEntry>[];
         for (var i = 0; i < totalPages; i++) {
           final page = await getPage(i);
           expect(
@@ -424,9 +470,9 @@ void main() {
         // Verify order and content
         for (var i = 0; i < allEntries.length; i++) {
           final paddedIndex = i.toString().padLeft(3, '0');
-          expect(allEntries[i].keyAsString, equals('key:$paddedIndex'));
+          expect(allEntries[i].key.toStringUtf8(), equals('key:$paddedIndex'));
           expect(
-            allEntries[i].dataAsString,
+            allEntries[i].data.toStringUtf8(),
             equals('value for entry $paddedIndex'),
           );
         }
@@ -454,7 +500,11 @@ void main() {
       final cursor = db.cursorOpen(writeTxn);
       try {
         for (var entry in testEntries) {
-          db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPut(
+            cursor,
+            LMDBVal.fromUtf8(entry.key),
+            LMDBVal.fromUtf8(entry.value),
+          );
         }
       } finally {
         db.cursorClose(cursor);
@@ -471,20 +521,20 @@ void main() {
       final cursor = db.cursorOpen(readTxn);
       try {
         // Helper function to get entries within a date range
-        Future<List<CursorEntry>> getEntriesInRange(
+        Future<List<LMDBEntry>> getEntriesInRange(
           String startDate,
           String endDate,
         ) async {
-          final results = <CursorEntry>[];
+          final results = <LMDBEntry>[];
 
           var entry = db.cursorGet(
             cursor,
-            'entry:$startDate',
+            LMDBVal.fromUtf8('entry:$startDate'),
             CursorOp.setRange,
           );
 
           while (entry != null &&
-              entry.keyAsString.compareTo('entry:$endDate') <= 0) {
+              entry.key.toStringUtf8().compareTo('entry:$endDate') <= 0) {
             results.add(entry);
             entry = db.cursorGet(cursor, null, CursorOp.next);
           }
@@ -498,8 +548,14 @@ void main() {
           '2024-01-31',
         );
         expect(januaryEntries.length, equals(31));
-        expect(januaryEntries.first.keyAsString, equals('entry:2024-01-01'));
-        expect(januaryEntries.last.keyAsString, equals('entry:2024-01-31'));
+        expect(
+          januaryEntries.first.key.toStringUtf8(),
+          equals('entry:2024-01-01'),
+        );
+        expect(
+          januaryEntries.last.key.toStringUtf8(),
+          equals('entry:2024-01-31'),
+        );
 
         // Test middle range
         final februaryEntries = await getEntriesInRange(
@@ -507,14 +563,20 @@ void main() {
           '2024-02-29',
         );
         expect(februaryEntries.length, equals(29));
-        expect(februaryEntries.first.keyAsString, equals('entry:2024-02-01'));
-        expect(februaryEntries.last.keyAsString, equals('entry:2024-02-29'));
+        expect(
+          februaryEntries.first.key.toStringUtf8(),
+          equals('entry:2024-02-01'),
+        );
+        expect(
+          februaryEntries.last.key.toStringUtf8(),
+          equals('entry:2024-02-29'),
+        );
 
         // Test partial range
         final marchWeek = await getEntriesInRange('2024-03-01', '2024-03-07');
         expect(marchWeek.length, equals(7));
-        expect(marchWeek.first.keyAsString, equals('entry:2024-03-01'));
-        expect(marchWeek.last.keyAsString, equals('entry:2024-03-07'));
+        expect(marchWeek.first.key.toStringUtf8(), equals('entry:2024-03-01'));
+        expect(marchWeek.last.key.toStringUtf8(), equals('entry:2024-03-07'));
       } finally {
         db.cursorClose(cursor);
       }
@@ -537,7 +599,11 @@ void main() {
       final cursor = db.cursorOpen(txn);
       try {
         for (var entry in testEntries) {
-          db.cursorPutUtf8(cursor, entry.key, entry.value);
+          db.cursorPut(
+            cursor,
+            LMDBVal.fromUtf8(entry.key),
+            LMDBVal.fromUtf8(entry.value),
+          );
         }
       } finally {
         db.cursorClose(cursor);
@@ -552,13 +618,17 @@ void main() {
 
         // Helper function to get a page of results
         Future<PageResult> getPage(String? startAfterKey) async {
-          final results = <CursorEntry>[];
+          final results = <LMDBEntry>[];
           String? nextKey;
 
           // Get first entry - either from start or after the given key
           var entry = startAfterKey == null
               ? db.cursorGet(cursor, null, CursorOp.first)
-              : db.cursorGet(cursor, startAfterKey, CursorOp.setRange);
+              : db.cursorGet(
+                  cursor,
+                  LMDBVal.fromUtf8(startAfterKey),
+                  CursorOp.setRange,
+                );
 
           // If we started from a specific key, we're already positioned at the next entry
           // No need for an extra next operation
@@ -571,7 +641,7 @@ void main() {
 
           // Get the key for the next page
           if (entry != null) {
-            nextKey = entry.keyAsString;
+            nextKey = entry.key.toStringUtf8();
           }
 
           return PageResult(results, nextKey);
@@ -580,19 +650,19 @@ void main() {
         // Test first page
         final firstPage = await getPage(null);
         expect(firstPage.entries.length, equals(pageSize));
-        expect(firstPage.entries.first.keyAsString, equals('key:000'));
-        expect(firstPage.entries.last.keyAsString, equals('key:009'));
+        expect(firstPage.entries.first.key.toStringUtf8(), equals('key:000'));
+        expect(firstPage.entries.last.key.toStringUtf8(), equals('key:009'));
         expect(firstPage.nextPageKey, equals('key:010'));
 
         // Test middle page using next key from first page
         final middlePage = await getPage(firstPage.nextPageKey);
         expect(middlePage.entries.length, equals(pageSize));
-        expect(middlePage.entries.first.keyAsString, equals('key:010'));
-        expect(middlePage.entries.last.keyAsString, equals('key:019'));
+        expect(middlePage.entries.first.key.toStringUtf8(), equals('key:010'));
+        expect(middlePage.entries.last.key.toStringUtf8(), equals('key:019'));
         expect(middlePage.nextPageKey, equals('key:020'));
 
         // Collect all pages efficiently
-        var allEntries = <CursorEntry>[];
+        var allEntries = <LMDBEntry>[];
         String? currentPageKey;
 
         while (true) {
@@ -610,23 +680,26 @@ void main() {
 
         for (var i = 0; i < allEntries.length; i++) {
           final paddedIndex = i.toString().padLeft(3, '0');
-          expect(allEntries[i].keyAsString, equals('key:$paddedIndex'));
+          expect(allEntries[i].key.toStringUtf8(), equals('key:$paddedIndex'));
           expect(
-            allEntries[i].dataAsString,
+            allEntries[i].data.toStringUtf8(),
             equals('value for entry $paddedIndex'),
           );
         }
 
         // Test seeking to specific page by key
         final specificPage = await getPage('key:050');
-        expect(specificPage.entries.first.keyAsString, equals('key:050'));
-        expect(specificPage.entries.last.keyAsString, equals('key:059'));
+        expect(
+          specificPage.entries.first.key.toStringUtf8(),
+          equals('key:050'),
+        );
+        expect(specificPage.entries.last.key.toStringUtf8(), equals('key:059'));
 
         // Test last page
         final lastPage = await getPage('key:090');
         expect(lastPage.entries.length, equals(10));
-        expect(lastPage.entries.first.keyAsString, equals('key:090'));
-        expect(lastPage.entries.last.keyAsString, equals('key:099'));
+        expect(lastPage.entries.first.key.toStringUtf8(), equals('key:090'));
+        expect(lastPage.entries.last.key.toStringUtf8(), equals('key:099'));
         expect(lastPage.nextPageKey, isNull);
       } finally {
         db.cursorClose(cursor);
@@ -639,8 +712,16 @@ void main() {
     await _withTransaction(db, (txn) async {
       final cursor = db.cursorOpen(txn);
       try {
-        db.cursorPut(cursor, '123', [0xFF, 0xFE, 0xFD]);
-        db.cursorPut(cursor, '456', [0xAA, 0xBB, 0xCC]);
+        db.cursorPut(
+          cursor,
+          LMDBVal.fromUtf8('123'),
+          LMDBVal.fromBytes([0xFF, 0xFE, 0xFD]),
+        );
+        db.cursorPut(
+          cursor,
+          LMDBVal.fromUtf8('456'),
+          LMDBVal.fromBytes([0xAA, 0xBB, 0xCC]),
+        );
       } finally {
         db.cursorClose(cursor);
       }
@@ -652,12 +733,12 @@ void main() {
       try {
         var entry = db.cursorGet(cursor, null, CursorOp.first);
 
-        expect(entry?.keyAsString, equals('123'));
-        expect(entry?.data, equals([0xFF, 0xFE, 0xFD]));
+        expect(entry?.key.toStringUtf8(), equals('123'));
+        expect(entry?.data.toBytes(), equals([0xFF, 0xFE, 0xFD]));
 
         entry = db.cursorGet(cursor, null, CursorOp.next);
-        expect(entry?.keyAsString, equals('456'));
-        expect(entry?.data, equals([0xAA, 0xBB, 0xCC]));
+        expect(entry?.key.toStringUtf8(), equals('456'));
+        expect(entry?.data.toBytes(), equals([0xAA, 0xBB, 0xCC]));
       } finally {
         db.cursorClose(cursor);
       }

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'generated_bindings.dart' as bindings;
 
 /// Public cursor operation modes for LMDB
@@ -67,42 +65,4 @@ enum CursorOp {
   /// Internal value used by LMDB
   final bindings.MDB_cursor_op value;
   const CursorOp(this.value);
-}
-
-/// Represents an entry returned by cursor operations
-class CursorEntry {
-  /// Raw binary key data
-  final List<int> key;
-
-  /// Raw binary value data
-  final List<int> data;
-
-  /// Creates a cursor entry with raw binary key and data
-  CursorEntry({required this.key, required this.data});
-
-  /// Convenience method to decode the key as UTF-8 string
-  String get keyAsString => utf8.decode(key);
-
-  /// Convenience method to decode the data as UTF-8 string
-  String get dataAsString => utf8.decode(data);
-
-  /// Creates a CursorEntry from UTF-8 encoded strings
-  factory CursorEntry.fromUtf8({
-    required String key,
-    required String data,
-  }) {
-    return CursorEntry(
-      key: utf8.encode(key),
-      data: utf8.encode(data),
-    );
-  }
-
-  @override
-  String toString() =>
-      'CursorEntry(key: ${key.length} bytes, data: ${data.length} bytes)';
-
-  /// Returns a string representation with UTF-8 decoded contents
-  /// Throws FormatException if the data is not valid UTF-8
-  String toStringDecoded() =>
-      'CursorEntry(key: $keyAsString, data: $dataAsString)';
 }

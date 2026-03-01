@@ -38,7 +38,7 @@ void main() {
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, mode: "0o666"),
     );
-    writeDb.putAuto('key', 'value'.codeUnits);
+    writeDb.putAuto(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
     writeDb.close();
 
     // Now open in read-only mode
@@ -56,12 +56,13 @@ void main() {
     );
 
     // Should be able to read
-    final result = readDb.getAuto('key');
-    expect(String.fromCharCodes(result!), equals('value'));
+    final result = readDb.getAuto(LMDBVal.fromUtf8('key'));
+    expect(result!.toStringUtf8(), equals('value'));
 
     // Write operations should fail
     expect(
-      () => readDb.putAuto('key2', 'value2'.codeUnits),
+      () =>
+          readDb.putAuto(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2')),
       throwsA(isA<LMDBException>()),
     );
 
@@ -82,7 +83,7 @@ void main() {
     final txn = db.txnStart();
     try {
       for (int i = 0; i < 1000; i++) {
-        db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
       db.txnCommit(txn);
     } catch (e) {
@@ -95,8 +96,8 @@ void main() {
 
     // Verify data
     for (int i = 0; i < 1000; i++) {
-      final result = db.getAuto('key$i');
-      expect(String.fromCharCodes(result!), equals('value$i'));
+      final result = db.getAuto(LMDBVal.fromUtf8('key$i'));
+      expect(result!.toStringUtf8(), equals('value$i'));
     }
 
     db.close();
@@ -111,10 +112,10 @@ void main() {
 
     db.init(dbFile.path, flags: noSubdirFlags);
 
-    db.putAuto('key', 'value'.codeUnits);
-    final result = db.getAuto('key');
+    db.putAuto(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
+    final result = db.getAuto(LMDBVal.fromUtf8('key'));
 
-    expect(String.fromCharCodes(result!), equals('value'));
+    expect(result!.toStringUtf8(), equals('value'));
     expect(dbFile.existsSync(), isTrue);
     expect(lockFile.existsSync(), isTrue);
 
@@ -136,7 +137,7 @@ void main() {
       flags: writeFlags,
     );
 
-    writeDb.putAuto('key', 'value'.codeUnits);
+    writeDb.putAuto(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
     writeDb.close();
 
     // Open same file read-only
@@ -151,12 +152,13 @@ void main() {
       flags: readFlags,
     );
 
-    final result = readDb.getAuto('key');
-    expect(String.fromCharCodes(result!), equals('value'));
+    final result = readDb.getAuto(LMDBVal.fromUtf8('key'));
+    expect(result!.toStringUtf8(), equals('value'));
 
     // Write should fail
     expect(
-      () => readDb.putAuto('key2', 'value2'.codeUnits),
+      () =>
+          readDb.putAuto(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2')),
       throwsA(isA<LMDBException>()),
     );
 
@@ -181,7 +183,7 @@ void main() {
     final txn = db.txnStart();
     try {
       for (int i = 0; i < 1000; i++) {
-        db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
       db.txnCommit(txn);
     } catch (e) {
@@ -203,9 +205,9 @@ void main() {
     );
 
     // Add some test data
-    writeDb.putAuto('key1', 'value1'.codeUnits);
-    writeDb.putAuto('key2', 'value2'.codeUnits);
-    writeDb.putAuto('key3', 'value3'.codeUnits);
+    writeDb.putAuto(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+    writeDb.putAuto(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
+    writeDb.putAuto(LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
     writeDb.close();
 
     // Now open multiple read-only instances without locking
@@ -229,13 +231,13 @@ void main() {
     // Test concurrent reads from all instances
     await Future.wait(
       readers.map((db) async {
-        final result1 = db.getAuto('key1');
-        final result2 = db.getAuto('key2');
-        final result3 = db.getAuto('key3');
+        final result1 = db.getAuto(LMDBVal.fromUtf8('key1'));
+        final result2 = db.getAuto(LMDBVal.fromUtf8('key2'));
+        final result3 = db.getAuto(LMDBVal.fromUtf8('key3'));
 
-        expect(String.fromCharCodes(result1!), equals('value1'));
-        expect(String.fromCharCodes(result2!), equals('value2'));
-        expect(String.fromCharCodes(result3!), equals('value3'));
+        expect(result1!.toStringUtf8(), equals('value1'));
+        expect(result2!.toStringUtf8(), equals('value2'));
+        expect(result3!.toStringUtf8(), equals('value3'));
       }),
     );
 
@@ -260,12 +262,12 @@ void main() {
     for (int i = 0; i < 10; i++) {
       final txn = db.txnStart();
       try {
-        db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
         db.txnCommit(txn);
 
         // Verify the write
-        final result = db.getAuto('key$i');
-        expect(String.fromCharCodes(result!), equals('value$i'));
+        final result = db.getAuto(LMDBVal.fromUtf8('key$i'));
+        expect(result!.toStringUtf8(), equals('value$i'));
       } catch (e) {
         db.txnAbort(txn);
         rethrow;
@@ -288,7 +290,7 @@ void main() {
     // 1. Single write transaction should work
     final writeTxn = db.txnStart();
     try {
-      db.put(writeTxn, 'key1', 'value1'.codeUnits);
+      db.put(writeTxn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
       db.txnCommit(writeTxn);
     } catch (e) {
       db.txnAbort(writeTxn);
@@ -300,11 +302,11 @@ void main() {
     final txn2 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
 
     try {
-      final result1 = db.get(txn1, 'key1');
-      final result2 = db.get(txn2, 'key1');
+      final result1 = db.get(txn1, LMDBVal.fromUtf8('key1'));
+      final result2 = db.get(txn2, LMDBVal.fromUtf8('key1'));
 
-      expect(String.fromCharCodes(result1!), equals('value1'));
-      expect(String.fromCharCodes(result2!), equals('value1'));
+      expect(result1!.toStringUtf8(), equals('value1'));
+      expect(result2!.toStringUtf8(), equals('value1'));
     } finally {
       db.txnAbort(txn1);
       db.txnAbort(txn2);
@@ -325,7 +327,7 @@ void main() {
 
     // Perform writes without metadata sync
     for (int i = 0; i < 100; i++) {
-      db.putAuto('key$i', 'value$i'.codeUnits);
+      db.putAuto(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
     }
 
     // Force sync
@@ -349,13 +351,13 @@ void main() {
 
     // First write all values
     for (var key in keys) {
-      db.putAuto(key, 'value'.codeUnits);
+      db.putAuto(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8('value'));
     }
 
     // Then read in random order
     for (int i = 0; i < 50; i++) {
       final randomKey = keys[random.nextInt(keys.length)];
-      final result = db.getAuto(randomKey);
+      final result = db.getAuto(LMDBVal.fromUtf8(randomKey));
       expect(result, isNotNull);
     }
 
@@ -380,7 +382,7 @@ void main() {
     final txn = db.txnStart();
     try {
       for (int i = 0; i < 10000; i++) {
-        db.put(txn, 'key$i', 'value$i'.codeUnits);
+        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
       db.txnCommit(txn);
     } catch (e) {

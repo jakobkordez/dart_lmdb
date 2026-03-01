@@ -319,6 +319,8 @@ export 'src/lmdb_class.dart';
 export 'src/lmdb_config.dart';
 export 'src/lmdb_constants.dart';
 export 'src/lmdb_cursor.dart';
+export 'src/lmdb_entry.dart';
 export 'src/lmdb_exception.dart';
 export 'src/lmdb_flags.dart';
+export 'src/lmdb_val.dart';
 export 'src/generated_bindings.dart' show MDB_txn, MDB_cursor;

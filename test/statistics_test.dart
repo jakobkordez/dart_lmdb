@@ -62,9 +62,9 @@ void main() {
     final txn = db.txnStart();
     try {
       // Put some data
-      db.put(txn, 'key1', 'value1'.codeUnits);
-      db.put(txn, 'key2', 'value2'.codeUnits);
-      db.put(txn, 'key3', 'value3'.codeUnits);
+      db.put(txn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+      db.put(txn, LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
+      db.put(txn, LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
 
       // Get stats within same transaction
       final stats = db.stats(txn);
@@ -141,7 +141,7 @@ void main() {
             final valueLength = random.nextInt(900) + 100;
             final value = generateRandomValue(valueLength);
 
-            largeDb.put(txn, key, value);
+            largeDb.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
           }
 
           largeDb.txnCommit(txn);
