@@ -47,7 +47,7 @@ class LMDBVal {
     return _ptr.ref.mv_data.cast<Utf8>().toDartString(length: _ptr.ref.mv_size);
   }
 
-  List<int> toBytes() {
+  List<int> asBytes() {
     return _ptr.ref.mv_data.cast<Uint8>().asTypedList(_ptr.ref.mv_size);
   }
 }
