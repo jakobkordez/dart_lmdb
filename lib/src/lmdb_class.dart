@@ -1160,10 +1160,14 @@ class LMDB {
   /// }
   /// ```
   ///
-  Pointer<MDB_cursor> cursorOpen(Pointer<MDB_txn> txn, {String? dbName}) {
+  Pointer<MDB_cursor> cursorOpen(
+    Pointer<MDB_txn> txn, {
+    String? dbName,
+    LMDBFlagSet? flags,
+  }) {
     if (!isInitialized) throw StateError(_errDbNotInitialized);
 
-    final dbi = _getDatabase(txn, name: dbName);
+    final dbi = _getDatabase(txn, name: dbName, flags: flags);
     final cursorPtr = calloc<Pointer<MDB_cursor>>();
 
     try {
