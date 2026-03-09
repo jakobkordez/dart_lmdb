@@ -471,6 +471,27 @@ const MDB_INTEGERDUP = bindings.MDB_INTEGERDUP;
 /// - Returns [MDB_KEYEXIST] when key already exists
 const MDB_NOOVERWRITE = bindings.MDB_NOOVERWRITE;
 
+/// Flag for put operations that prevents adding duplicate data items.
+const MDB_NODUPDATA = bindings.MDB_NODUPDATA;
+
+/// Flag for put operations that overwrites the current key/data pair.
+const MDB_CURRENT = bindings.MDB_CURRENT;
+
+/// Flag for put operations that reserves space for data.
+const MDB_RESERVE = bindings.MDB_RESERVE;
+
+/// Flag for put operations that appends the data to the end of the database.
+const MDB_APPEND = bindings.MDB_APPEND;
+
+/// Flag for put operations that appends duplicate data to the end of the database.
+const MDB_APPENDDUP = bindings.MDB_APPENDDUP;
+
+/// Flag for put operations that stores multiple data items in a single call.
+const MDB_MULTIPLE = bindings.MDB_MULTIPLE;
+
+/// Flag for compacting copy operations.
+const MDB_CP_COMPACT = bindings.MDB_CP_COMPACT;
+
 //
 // Error codes
 //
