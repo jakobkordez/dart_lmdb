@@ -1263,11 +1263,15 @@ class LMDB {
   ///   rethrow;
   /// }
   /// ```
-  List<LMDBVal> getAllKeys(Pointer<MDB_txn> txn, {String? dbName}) {
+  List<LMDBVal> getAllKeys(
+    Pointer<MDB_txn> txn, {
+    String? dbName,
+    LMDBFlagSet? flags,
+  }) {
     if (!isInitialized) throw StateError(_errDbNotInitialized);
 
     // DBI resolution may need async (cache miss), but is typically instant.
-    final dbi = _getDatabase(txn, name: dbName);
+    final dbi = _getDatabase(txn, name: dbName, flags: flags);
 
     // --- Everything below is synchronous FFI ---
 
