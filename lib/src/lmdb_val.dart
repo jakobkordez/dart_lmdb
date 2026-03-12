@@ -17,6 +17,14 @@ class LMDBVal {
     if (_bytesPtr != null) _finalizer.attach(this, _bytesPtr, detach: this);
   }
 
+  void dispose() {
+    _finalizer.detach(this);
+    calloc.free(_ptr);
+    if (_bytesPtr != null) {
+      calloc.free(_bytesPtr);
+    }
+  }
+
   LMDBVal.empty() : this._(calloc<MDB_val>(), null);
 
   factory LMDBVal.fromUtf8(String value) {
