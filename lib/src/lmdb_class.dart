@@ -1035,11 +1035,12 @@ class LMDB {
 
       // open db read-only
       final dbiPtr = calloc<MDB_dbi>();
+      final namePtr = dbName?.toNativeUtf8();
       late final int dbi;
       try {
         final result = _lib.mdb_dbi_open(
           txn,
-          dbName?.toNativeUtf8().cast() ?? nullptr,
+          namePtr?.cast() ?? nullptr,
           0,
           dbiPtr,
         );
@@ -1049,6 +1050,7 @@ class LMDB {
         }
         dbi = dbiPtr.value;
       } finally {
+        if (namePtr != null) calloc.free(namePtr);
         calloc.free(dbiPtr);
       }
 
