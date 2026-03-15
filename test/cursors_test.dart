@@ -120,7 +120,7 @@ void main() {
       final cursor = db.cursorOpen(readTxn);
       try {
         // Test cursor count
-        final count = db.cursorCount(readTxn);
+        final count = db.stats(readTxn).entries;
         expect(count, equals(testData.length));
 
         // Test iteration through all entries
@@ -199,7 +199,7 @@ void main() {
         expect(entry, isNull);
 
         // Verify remaining count
-        final newCount = db.cursorCount(verifyTxn);
+        final newCount = db.stats(verifyTxn).entries;
         expect(newCount, equals(testData.length - 1));
       } finally {
         db.cursorClose(cursor);

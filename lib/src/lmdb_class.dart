@@ -1400,34 +1400,6 @@ class LMDB {
     }
   }
 
-  /// Helper method to count entries using a cursor
-  ///
-  /// Parameters:
-  /// * [txn] - Active transaction
-  /// * [dbName] - Optional named database
-  ///
-  /// Returns the number of entries in the database
-  ///
-  /// Example:
-  /// ```dart
-  /// final count = db.cursorCount();
-  /// print('Database contains $count entries');
-  /// ```
-  int cursorCount(Pointer<MDB_txn> txn, {String? dbName}) {
-    final cursor = cursorOpen(txn, dbName: dbName);
-    try {
-      var count = 0;
-      var entry = cursorGet(cursor, null, CursorOp.first);
-      while (entry != null) {
-        count++;
-        entry = cursorGet(cursor, null, CursorOp.next);
-      }
-      return count;
-    } finally {
-      cursorClose(cursor);
-    }
-  }
-
   /// Cleans up resources and closes the database.
   ///
   /// This is equivalent to calling [close] and should be called
