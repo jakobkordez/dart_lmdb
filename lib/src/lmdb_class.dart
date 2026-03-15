@@ -1219,8 +1219,13 @@ class LMDB {
     LMDBVal? key,
     CursorOp operation,
   ) {
-    final keyVal = key?.copy() ?? LMDBVal.empty();
+    final keyVal = LMDBVal.empty();
     final dataVal = LMDBVal.empty();
+
+    if (key != null) {
+      keyVal.ptr.ref.mv_size = key.ptr.ref.mv_size;
+      keyVal.ptr.ref.mv_data = key.ptr.ref.mv_data;
+    }
 
     final result = _lib.mdb_cursor_get(
       cursor,
@@ -1234,10 +1239,7 @@ class LMDB {
       throw LMDBException('Cursor operation failed', result);
     }
 
-    return LMDBEntry(
-      key: keyVal.ptr == key?.ptr ? key! : keyVal,
-      data: dataVal,
-    );
+    return LMDBEntry(key: keyVal, data: dataVal);
   }
 
   bool cursorRefGet(
