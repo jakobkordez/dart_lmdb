@@ -1279,7 +1279,7 @@ class LMDB {
   ///   rethrow;
   /// }
   /// ```
-  List<LMDBVal> getAllKeys(
+  List<Uint8List> getAllKeys(
     Pointer<MDB_txn> txn, {
     String? dbName,
     LMDBFlagSet? flags,
@@ -1300,7 +1300,7 @@ class LMDB {
       try {
         final keyVal = LMDBVal.empty();
         final dataVal = LMDBVal.empty();
-        final keys = <LMDBVal>[];
+        final keys = <Uint8List>[];
 
         var result = _lib.mdb_cursor_get(
           cursor,
@@ -1310,7 +1310,7 @@ class LMDB {
         );
 
         while (result == 0) {
-          keys.add(keyVal.copy());
+          keys.add(keyVal.asBytes());
           result = _lib.mdb_cursor_get(
             cursor,
             keyVal.ptr,
