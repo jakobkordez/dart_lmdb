@@ -811,13 +811,13 @@ class LMDB {
     try {
       final namePtr = name?.toNativeUtf8();
       try {
-        final effectiveFlags = flags ?? LMDBFlagSet.defaultFlags;
-        effectiveFlags.add(MDB_CREATE);
+        final effectiveFlags =
+            (flags ?? LMDBFlagSet.defaultFlags).value | MDB_CREATE;
 
         final result = _lib.mdb_dbi_open(
           txn,
           namePtr?.cast() ?? nullptr,
-          effectiveFlags.value,
+          effectiveFlags,
           dbiPtr,
         );
 
