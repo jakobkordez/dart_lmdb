@@ -1242,6 +1242,24 @@ class LMDB {
     );
   }
 
+  bool cursorRefGet(
+    Pointer<MDB_cursor> cursor,
+    LMDBVal key,
+    LMDBVal data,
+    CursorOp operation,
+  ) {
+    final result = _lib.mdb_cursor_get(
+      cursor,
+      key.ptr,
+      data.ptr,
+      operation.value,
+    );
+
+    if (result == 0) return true;
+    if (result == MDB_NOTFOUND) return false;
+    throw LMDBException('Cursor operation failed', result);
+  }
+
   /// Collects all keys from the specified database in a single tight loop.
   ///
   /// This is much faster than calling [cursorGet] per-entry because it:
