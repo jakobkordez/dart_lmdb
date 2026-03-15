@@ -14,7 +14,6 @@ class LMDBVal implements Comparable<LMDBVal> {
   Pointer<MDB_val> get ptr => _ptr;
 
   LMDBVal._(this._ptr, this._bytesPtr) {
-    // print('creating ${_ptr.address}');
     _finalizer.attach(this, _ptr, detach: this);
     if (_bytesPtr != null) _finalizer.attach(this, _bytesPtr, detach: this);
   }
@@ -22,9 +21,7 @@ class LMDBVal implements Comparable<LMDBVal> {
   void dispose() {
     _finalizer.detach(this);
     calloc.free(_ptr);
-    if (_bytesPtr != null) {
-      calloc.free(_bytesPtr);
-    }
+    if (_bytesPtr != null) calloc.free(_bytesPtr);
   }
 
   LMDBVal.empty() : this._(calloc<MDB_val>(), null);
@@ -44,13 +41,6 @@ class LMDBVal implements Comparable<LMDBVal> {
     ptr.ref.mv_size = bytes.length;
     ptr.ref.mv_data = data.cast();
     return LMDBVal._(ptr, data.cast());
-  }
-
-  LMDBVal copy() {
-    final ptr = calloc<MDB_val>();
-    ptr.ref.mv_size = _ptr.ref.mv_size;
-    ptr.ref.mv_data = _ptr.ref.mv_data.cast();
-    return LMDBVal._(ptr, null);
   }
 
   String toUtf8String() {
