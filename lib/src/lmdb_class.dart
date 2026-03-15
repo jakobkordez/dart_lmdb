@@ -1258,6 +1258,18 @@ class LMDB {
     throw LMDBException('Cursor operation failed', result);
   }
 
+  int compareVals(
+    Pointer<MDB_txn> txn,
+    LMDBVal a,
+    LMDBVal b, {
+    String? dbName,
+    LMDBFlagSet? flags,
+  }) {
+    final dbi = _getDatabase(txn, name: dbName, flags: flags);
+
+    return _lib.mdb_cmp(txn, dbi, a.ptr, b.ptr);
+  }
+
   /// Collects all keys from the specified database in a single tight loop.
   ///
   /// This is much faster than calling [cursorGet] per-entry because it:
