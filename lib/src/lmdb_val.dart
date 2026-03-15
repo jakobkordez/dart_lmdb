@@ -1,9 +1,11 @@
 import 'dart:ffi';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:dart_lmdb/src/generated_bindings.dart';
 import 'package:ffi/ffi.dart';
 
-class LMDBVal {
+class LMDBVal implements Comparable<LMDBVal> {
   static final _finalizer = Finalizer<Pointer>(calloc.free);
 
   final Pointer<MDB_val> _ptr;
@@ -59,5 +61,17 @@ class LMDBVal {
     final r = _ptr.ref.mv_data.cast<Uint8>().asTypedList(_ptr.ref.mv_size);
     if (!copy) return r;
     return Uint8List.fromList(r);
+  }
+
+  @override
+  int compareTo(LMDBVal other) {
+    final a = asBytes(copy: false);
+    final b = other.asBytes(copy: false);
+    final n = min(a.length, b.length);
+    for (var i = 0; i < n; i++) {
+      final diff = a[i] - b[i];
+      if (diff != 0) return diff;
+    }
+    return a.length - b.length;
   }
 }
