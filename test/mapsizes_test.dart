@@ -74,7 +74,7 @@ void main() {
     try {
       final data = db.get(readTxn, LMDBVal.fromUtf8('key_1'));
       expect(data, isNotNull);
-      expect(data!.toBytes().length, equals(1024));
+      expect(data!.asBytes().length, equals(1024));
       db.txnCommit(readTxn);
     } catch (e) {
       db.txnAbort(readTxn);

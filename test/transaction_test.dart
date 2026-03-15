@@ -71,9 +71,9 @@ void main() {
       var result2 = db.get(txn, LMDBVal.fromUtf8('key2'));
       var result3 = db.get(txn, LMDBVal.fromUtf8('key3'));
 
-      expect(result1!.toStringUtf8(), equals('value1'));
-      expect(result2!.toStringUtf8(), equals('value2'));
-      expect(result3!.toStringUtf8(), equals('value3'));
+      expect(result1!.toUtf8String(), equals('value1'));
+      expect(result2!.toUtf8String(), equals('value2'));
+      expect(result3!.toUtf8String(), equals('value3'));
 
       // Delete one item
       db.delete(txn, LMDBVal.fromUtf8('key2'));
@@ -93,9 +93,9 @@ void main() {
     final result2 = db.getAuto(LMDBVal.fromUtf8('key2'));
     final result3 = db.getAuto(LMDBVal.fromUtf8('key3'));
 
-    expect(result1!.toStringUtf8(), equals('value1'));
+    expect(result1!.toUtf8String(), equals('value1'));
     expect(result2, isNull);
-    expect(result3!.toStringUtf8(), equals('value3'));
+    expect(result3!.toUtf8String(), equals('value3'));
   });
 
   test('Transaction rollback', () async {
@@ -112,8 +112,8 @@ void main() {
       var result1 = db.get(txn, LMDBVal.fromUtf8('key1'));
       var result2 = db.get(txn, LMDBVal.fromUtf8('key2'));
 
-      expect(result1!.toStringUtf8(), equals('modified_value'));
-      expect(result2!.toStringUtf8(), equals('new_value'));
+      expect(result1!.toUtf8String(), equals('modified_value'));
+      expect(result2!.toUtf8String(), equals('new_value'));
 
       // Abort transaction instead of committing
       db.txnAbort(txn);
@@ -126,7 +126,7 @@ void main() {
     final result1 = db.getAuto(LMDBVal.fromUtf8('key1'));
     final result2 = db.getAuto(LMDBVal.fromUtf8('key2'));
 
-    expect(result1!.toStringUtf8(), equals('initial_value'));
+    expect(result1!.toUtf8String(), equals('initial_value'));
     expect(result2, isNull);
   });
 
@@ -151,7 +151,7 @@ void main() {
     final readTxn1 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       final result1 = db.get(readTxn1, LMDBVal.fromUtf8('key1'));
-      expect(result1!.toStringUtf8(), equals('value1'));
+      expect(result1!.toUtf8String(), equals('value1'));
       db.txnCommit(readTxn1);
     } catch (e) {
       db.txnAbort(readTxn1);
@@ -161,7 +161,7 @@ void main() {
     final readTxn2 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
     try {
       final result2 = db.get(readTxn2, LMDBVal.fromUtf8('key1'));
-      expect(result2!.toStringUtf8(), equals('value1'));
+      expect(result2!.toUtf8String(), equals('value1'));
       db.txnCommit(readTxn2);
     } catch (e) {
       db.txnAbort(readTxn2);
@@ -183,8 +183,8 @@ void main() {
     try {
       final result1 = db.get(finalReadTxn, LMDBVal.fromUtf8('key1'));
       final result2 = db.get(finalReadTxn, LMDBVal.fromUtf8('key2'));
-      expect(result1!.toStringUtf8(), equals('value1'));
-      expect(result2!.toStringUtf8(), equals('value2'));
+      expect(result1!.toUtf8String(), equals('value1'));
+      expect(result2!.toUtf8String(), equals('value2'));
       db.txnCommit(finalReadTxn);
     } catch (e) {
       db.txnAbort(finalReadTxn);
@@ -265,8 +265,8 @@ void main() {
         dbName: 'named_db',
       );
 
-      expect(defaultResult!.toStringUtf8(), equals('default_value'));
-      expect(namedResult!.toStringUtf8(), equals('named_value'));
+      expect(defaultResult!.toUtf8String(), equals('default_value'));
+      expect(namedResult!.toUtf8String(), equals('named_value'));
 
       db.txnCommit(readBothTxn);
     } catch (e) {
@@ -284,7 +284,7 @@ void main() {
       );
 
       final existingValue = db.get(complexTxn, LMDBVal.fromUtf8('key1'));
-      expect(existingValue!.toStringUtf8(), equals('value1'));
+      expect(existingValue!.toUtf8String(), equals('value1'));
 
       db.delete(complexTxn, LMDBVal.fromUtf8('key_a'));
 
@@ -302,7 +302,7 @@ void main() {
     try {
       // Check original data
       final result1 = db.get(finalTxn, LMDBVal.fromUtf8('key1'));
-      expect(result1!.toStringUtf8(), equals('value1'));
+      expect(result1!.toUtf8String(), equals('value1'));
 
       // Check multi-db data
       final defaultResult = db.get(finalTxn, LMDBVal.fromUtf8('default_key'));
@@ -311,8 +311,8 @@ void main() {
         LMDBVal.fromUtf8('named_key'),
         dbName: 'named_db',
       );
-      expect(defaultResult!.toStringUtf8(), equals('default_value'));
-      expect(namedResult!.toStringUtf8(), equals('named_value'));
+      expect(defaultResult!.toUtf8String(), equals('default_value'));
+      expect(namedResult!.toUtf8String(), equals('named_value'));
 
       // Check deleted data
       final deletedResult = db.get(finalTxn, LMDBVal.fromUtf8('key_a'));
@@ -409,21 +409,21 @@ void main() {
 
     for (int i = 0; i < 30; i++) {
       expect(
-        results[0][i]!.toStringUtf8(),
+        results[0][i]!.toUtf8String(),
         equals('value$i'),
         reason: 'Mismatch in second instance range',
       );
     }
     for (int i = 0; i < 30; i++) {
       expect(
-        results[1][i]!.toStringUtf8(),
+        results[1][i]!.toUtf8String(),
         equals('value${i + 30}'),
         reason: 'Mismatch in second instance range',
       );
     }
     for (int i = 0; i < 40; i++) {
       expect(
-        results[2][i]!.toStringUtf8(),
+        results[2][i]!.toUtf8String(),
         equals('value${i + 60}'),
         reason: 'Mismatch in third instance range',
       );
@@ -447,7 +447,7 @@ void main() {
     final readTxn = db.txnStart(flags: readFlags);
     try {
       final result = db.get(readTxn, LMDBVal.fromUtf8('final_key'));
-      expect(result!.toStringUtf8(), equals('final_value'));
+      expect(result!.toUtf8String(), equals('final_value'));
       db.txnCommit(readTxn);
     } catch (e) {
       db.txnAbort(readTxn);
@@ -552,21 +552,21 @@ void main() {
 
     for (int i = 0; i < 30; i++) {
       expect(
-        results[0][i]!.toStringUtf8(),
+        results[0][i]!.toUtf8String(),
         equals('value$i'),
         reason: 'Mismatch in second instance range',
       );
     }
     for (int i = 0; i < 30; i++) {
       expect(
-        results[1][i]!.toStringUtf8(),
+        results[1][i]!.toUtf8String(),
         equals('value${i + 30}'),
         reason: 'Mismatch in second instance range',
       );
     }
     for (int i = 0; i < 40; i++) {
       expect(
-        results[2][i]!.toStringUtf8(),
+        results[2][i]!.toUtf8String(),
         equals('value${i + 60}'),
         reason: 'Mismatch in third instance range',
       );
@@ -586,7 +586,7 @@ void main() {
       final readTxn = db2.txnStart(flags: readFlags);
       try {
         final result = db2.get(readTxn, LMDBVal.fromUtf8('final_key'));
-        expect(result!.toStringUtf8(), equals('final_value'));
+        expect(result!.toUtf8String(), equals('final_value'));
         db2.txnCommit(readTxn);
       } catch (e) {
         db2.txnAbort(readTxn);
@@ -652,7 +652,7 @@ void main() {
           final readTxn = db2.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
           try {
             final result = db2.get(readTxn, LMDBVal.fromUtf8('key$i'));
-            if (result != null && result.toStringUtf8() != 'value$i') {
+            if (result != null && result.toUtf8String() != 'value$i') {
               throw Exception('Mismatch in value for key$i');
             }
             db2.txnCommit(readTxn);
@@ -684,13 +684,13 @@ void main() {
           try {
             // Try to read data from Instance 1
             final result1 = db3.get(readTxn, LMDBVal.fromUtf8('key$i'));
-            if (result1 != null && result1.toStringUtf8() != 'value$i') {
+            if (result1 != null && result1.toUtf8String() != 'value$i') {
               throw Exception('Mismatch in value for key$i');
             }
 
             // Try to read data from Instance 2
             final result2 = db3.get(readTxn, LMDBVal.fromUtf8('db2_key$i'));
-            if (result2 != null && result2.toStringUtf8() != 'db2_value$i') {
+            if (result2 != null && result2.toUtf8String() != 'db2_value$i') {
               throw Exception('Mismatch in value for db2_key$i');
             }
 
@@ -712,13 +712,13 @@ void main() {
       // Verify data written by Instance 1
       for (int i = 0; i < 10; i++) {
         final result1 = db1.get(verifyTxn, LMDBVal.fromUtf8('key$i'));
-        expect(result1!.toStringUtf8(), equals('value$i'));
+        expect(result1!.toUtf8String(), equals('value$i'));
       }
 
       // Verify data written by Instance 2
       for (int i = 0; i < 10; i++) {
         final result2 = db1.get(verifyTxn, LMDBVal.fromUtf8('db2_key$i'));
-        expect(result2!.toStringUtf8(), equals('db2_value$i'));
+        expect(result2!.toUtf8String(), equals('db2_value$i'));
       }
 
       db1.txnCommit(verifyTxn);

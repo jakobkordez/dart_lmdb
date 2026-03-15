@@ -67,9 +67,9 @@ void main() {
     final result2 = db.getAuto(LMDBVal.fromUtf8('key1'), dbName: 'db2');
     final result3 = db.getAuto(LMDBVal.fromUtf8('key1')); // default database
 
-    expect(result1!.toStringUtf8(), equals('value1'));
-    expect(result2!.toStringUtf8(), equals('value2'));
-    expect(result3!.toStringUtf8(), equals('value3'));
+    expect(result1!.toUtf8String(), equals('value1'));
+    expect(result2!.toUtf8String(), equals('value2'));
+    expect(result3!.toUtf8String(), equals('value3'));
   });
 
   test('List named databases', () async {
@@ -114,6 +114,6 @@ void main() {
     final result2 = db.getAuto(LMDBVal.fromUtf8('key'), dbName: 'db2');
 
     expect(result1, isNull);
-    expect(result2!.toStringUtf8(), equals('value2'));
+    expect(result2!.toUtf8String(), equals('value2'));
   });
 }

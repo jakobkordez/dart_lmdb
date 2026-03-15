@@ -57,7 +57,7 @@ void main() {
 
     // Should be able to read
     final result = readDb.getAuto(LMDBVal.fromUtf8('key'));
-    expect(result!.toStringUtf8(), equals('value'));
+    expect(result!.toUtf8String(), equals('value'));
 
     // Write operations should fail
     expect(
@@ -97,7 +97,7 @@ void main() {
     // Verify data
     for (int i = 0; i < 1000; i++) {
       final result = db.getAuto(LMDBVal.fromUtf8('key$i'));
-      expect(result!.toStringUtf8(), equals('value$i'));
+      expect(result!.toUtf8String(), equals('value$i'));
     }
 
     db.close();
@@ -115,7 +115,7 @@ void main() {
     db.putAuto(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
     final result = db.getAuto(LMDBVal.fromUtf8('key'));
 
-    expect(result!.toStringUtf8(), equals('value'));
+    expect(result!.toUtf8String(), equals('value'));
     expect(dbFile.existsSync(), isTrue);
     expect(lockFile.existsSync(), isTrue);
 
@@ -153,7 +153,7 @@ void main() {
     );
 
     final result = readDb.getAuto(LMDBVal.fromUtf8('key'));
-    expect(result!.toStringUtf8(), equals('value'));
+    expect(result!.toUtf8String(), equals('value'));
 
     // Write should fail
     expect(
@@ -235,9 +235,9 @@ void main() {
         final result2 = db.getAuto(LMDBVal.fromUtf8('key2'));
         final result3 = db.getAuto(LMDBVal.fromUtf8('key3'));
 
-        expect(result1!.toStringUtf8(), equals('value1'));
-        expect(result2!.toStringUtf8(), equals('value2'));
-        expect(result3!.toStringUtf8(), equals('value3'));
+        expect(result1!.toUtf8String(), equals('value1'));
+        expect(result2!.toUtf8String(), equals('value2'));
+        expect(result3!.toUtf8String(), equals('value3'));
       }),
     );
 
@@ -267,7 +267,7 @@ void main() {
 
         // Verify the write
         final result = db.getAuto(LMDBVal.fromUtf8('key$i'));
-        expect(result!.toStringUtf8(), equals('value$i'));
+        expect(result!.toUtf8String(), equals('value$i'));
       } catch (e) {
         db.txnAbort(txn);
         rethrow;
@@ -305,8 +305,8 @@ void main() {
       final result1 = db.get(txn1, LMDBVal.fromUtf8('key1'));
       final result2 = db.get(txn2, LMDBVal.fromUtf8('key1'));
 
-      expect(result1!.toStringUtf8(), equals('value1'));
-      expect(result2!.toStringUtf8(), equals('value1'));
+      expect(result1!.toUtf8String(), equals('value1'));
+      expect(result2!.toUtf8String(), equals('value1'));
     } finally {
       db.txnAbort(txn1);
       db.txnAbort(txn2);

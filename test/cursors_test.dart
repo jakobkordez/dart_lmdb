@@ -127,8 +127,8 @@ void main() {
         var entry = db.cursorGet(cursor, null, CursorOp.first);
         var foundEntries = 0;
         while (entry != null) {
-          final key = entry.key.toStringUtf8();
-          final data = entry.data.toStringUtf8();
+          final key = entry.key.toUtf8String();
+          final data = entry.data.toUtf8String();
 
           expect(testData.containsKey(key), isTrue);
           expect(testData[key], equals(data));
@@ -146,8 +146,8 @@ void main() {
           CursorOp.set,
         );
         expect(entry, isNotNull);
-        expect(entry?.key.toStringUtf8(), equals(specificKey));
-        expect(entry?.data.toStringUtf8(), equals(testData[specificKey]));
+        expect(entry?.key.toUtf8String(), equals(specificKey));
+        expect(entry?.data.toUtf8String(), equals(testData[specificKey]));
 
         // Test range search
         entry = db.cursorGet(
@@ -157,7 +157,7 @@ void main() {
         );
         expect(entry, isNotNull);
         expect(
-          entry?.key.toStringUtf8(),
+          entry?.key.toUtf8String(),
           equals('user:1'),
         ); // Should find first user
       } finally {
@@ -283,8 +283,8 @@ void main() {
         );
 
         while (entry != null &&
-            entry.key.toStringUtf8().startsWith('customer:')) {
-          customerEntries[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
+            entry.key.toUtf8String().startsWith('customer:')) {
+          customerEntries[entry.key.toUtf8String()] = entry.data.toUtf8String();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -303,8 +303,8 @@ void main() {
         );
 
         while (entry != null &&
-            entry.key.toStringUtf8().startsWith('product:')) {
-          productEntries[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
+            entry.key.toUtf8String().startsWith('product:')) {
+          productEntries[entry.key.toUtf8String()] = entry.data.toUtf8String();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -322,8 +322,8 @@ void main() {
           CursorOp.setRange,
         );
 
-        while (entry != null && entry.key.toStringUtf8().startsWith('order:')) {
-          orderEntries[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
+        while (entry != null && entry.key.toUtf8String().startsWith('order:')) {
+          orderEntries[entry.key.toUtf8String()] = entry.data.toUtf8String();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -339,8 +339,8 @@ void main() {
         );
 
         while (entry != null &&
-            entry.key.toStringUtf8().startsWith('customer:002:')) {
-          customer2Data[entry.key.toStringUtf8()] = entry.data.toStringUtf8();
+            entry.key.toUtf8String().startsWith('customer:002:')) {
+          customer2Data[entry.key.toUtf8String()] = entry.data.toUtf8String();
           entry = db.cursorGet(cursor, null, CursorOp.next);
         }
 
@@ -439,20 +439,20 @@ void main() {
         // Test first page (0-9)
         final firstPage = await getPage(0);
         expect(firstPage.length, equals(pageSize));
-        expect(firstPage.first.key.toStringUtf8(), equals('key:000'));
-        expect(firstPage.last.key.toStringUtf8(), equals('key:009'));
+        expect(firstPage.first.key.toUtf8String(), equals('key:000'));
+        expect(firstPage.last.key.toUtf8String(), equals('key:009'));
 
         // Test middle page (50-59)
         final middlePage = await getPage(5);
         expect(middlePage.length, equals(pageSize));
-        expect(middlePage.first.key.toStringUtf8(), equals('key:050'));
-        expect(middlePage.last.key.toStringUtf8(), equals('key:059'));
+        expect(middlePage.first.key.toUtf8String(), equals('key:050'));
+        expect(middlePage.last.key.toUtf8String(), equals('key:059'));
 
         // Test last page (90-99)
         final lastPage = await getPage(9);
         expect(lastPage.length, equals(pageSize));
-        expect(lastPage.first.key.toStringUtf8(), equals('key:090'));
-        expect(lastPage.last.key.toStringUtf8(), equals('key:099'));
+        expect(lastPage.first.key.toUtf8String(), equals('key:090'));
+        expect(lastPage.last.key.toUtf8String(), equals('key:099'));
 
         // Verify sequential access of all pages
         var allEntries = <LMDBEntry>[];
@@ -470,9 +470,9 @@ void main() {
         // Verify order and content
         for (var i = 0; i < allEntries.length; i++) {
           final paddedIndex = i.toString().padLeft(3, '0');
-          expect(allEntries[i].key.toStringUtf8(), equals('key:$paddedIndex'));
+          expect(allEntries[i].key.toUtf8String(), equals('key:$paddedIndex'));
           expect(
-            allEntries[i].data.toStringUtf8(),
+            allEntries[i].data.toUtf8String(),
             equals('value for entry $paddedIndex'),
           );
         }
@@ -534,7 +534,7 @@ void main() {
           );
 
           while (entry != null &&
-              entry.key.toStringUtf8().compareTo('entry:$endDate') <= 0) {
+              entry.key.toUtf8String().compareTo('entry:$endDate') <= 0) {
             results.add(entry);
             entry = db.cursorGet(cursor, null, CursorOp.next);
           }
@@ -549,11 +549,11 @@ void main() {
         );
         expect(januaryEntries.length, equals(31));
         expect(
-          januaryEntries.first.key.toStringUtf8(),
+          januaryEntries.first.key.toUtf8String(),
           equals('entry:2024-01-01'),
         );
         expect(
-          januaryEntries.last.key.toStringUtf8(),
+          januaryEntries.last.key.toUtf8String(),
           equals('entry:2024-01-31'),
         );
 
@@ -564,19 +564,19 @@ void main() {
         );
         expect(februaryEntries.length, equals(29));
         expect(
-          februaryEntries.first.key.toStringUtf8(),
+          februaryEntries.first.key.toUtf8String(),
           equals('entry:2024-02-01'),
         );
         expect(
-          februaryEntries.last.key.toStringUtf8(),
+          februaryEntries.last.key.toUtf8String(),
           equals('entry:2024-02-29'),
         );
 
         // Test partial range
         final marchWeek = await getEntriesInRange('2024-03-01', '2024-03-07');
         expect(marchWeek.length, equals(7));
-        expect(marchWeek.first.key.toStringUtf8(), equals('entry:2024-03-01'));
-        expect(marchWeek.last.key.toStringUtf8(), equals('entry:2024-03-07'));
+        expect(marchWeek.first.key.toUtf8String(), equals('entry:2024-03-01'));
+        expect(marchWeek.last.key.toUtf8String(), equals('entry:2024-03-07'));
       } finally {
         db.cursorClose(cursor);
       }
@@ -641,7 +641,7 @@ void main() {
 
           // Get the key for the next page
           if (entry != null) {
-            nextKey = entry.key.toStringUtf8();
+            nextKey = entry.key.toUtf8String();
           }
 
           return PageResult(results, nextKey);
@@ -650,15 +650,15 @@ void main() {
         // Test first page
         final firstPage = await getPage(null);
         expect(firstPage.entries.length, equals(pageSize));
-        expect(firstPage.entries.first.key.toStringUtf8(), equals('key:000'));
-        expect(firstPage.entries.last.key.toStringUtf8(), equals('key:009'));
+        expect(firstPage.entries.first.key.toUtf8String(), equals('key:000'));
+        expect(firstPage.entries.last.key.toUtf8String(), equals('key:009'));
         expect(firstPage.nextPageKey, equals('key:010'));
 
         // Test middle page using next key from first page
         final middlePage = await getPage(firstPage.nextPageKey);
         expect(middlePage.entries.length, equals(pageSize));
-        expect(middlePage.entries.first.key.toStringUtf8(), equals('key:010'));
-        expect(middlePage.entries.last.key.toStringUtf8(), equals('key:019'));
+        expect(middlePage.entries.first.key.toUtf8String(), equals('key:010'));
+        expect(middlePage.entries.last.key.toUtf8String(), equals('key:019'));
         expect(middlePage.nextPageKey, equals('key:020'));
 
         // Collect all pages efficiently
@@ -680,9 +680,9 @@ void main() {
 
         for (var i = 0; i < allEntries.length; i++) {
           final paddedIndex = i.toString().padLeft(3, '0');
-          expect(allEntries[i].key.toStringUtf8(), equals('key:$paddedIndex'));
+          expect(allEntries[i].key.toUtf8String(), equals('key:$paddedIndex'));
           expect(
-            allEntries[i].data.toStringUtf8(),
+            allEntries[i].data.toUtf8String(),
             equals('value for entry $paddedIndex'),
           );
         }
@@ -690,16 +690,16 @@ void main() {
         // Test seeking to specific page by key
         final specificPage = await getPage('key:050');
         expect(
-          specificPage.entries.first.key.toStringUtf8(),
+          specificPage.entries.first.key.toUtf8String(),
           equals('key:050'),
         );
-        expect(specificPage.entries.last.key.toStringUtf8(), equals('key:059'));
+        expect(specificPage.entries.last.key.toUtf8String(), equals('key:059'));
 
         // Test last page
         final lastPage = await getPage('key:090');
         expect(lastPage.entries.length, equals(10));
-        expect(lastPage.entries.first.key.toStringUtf8(), equals('key:090'));
-        expect(lastPage.entries.last.key.toStringUtf8(), equals('key:099'));
+        expect(lastPage.entries.first.key.toUtf8String(), equals('key:090'));
+        expect(lastPage.entries.last.key.toUtf8String(), equals('key:099'));
         expect(lastPage.nextPageKey, isNull);
       } finally {
         db.cursorClose(cursor);
@@ -733,12 +733,12 @@ void main() {
       try {
         var entry = db.cursorGet(cursor, null, CursorOp.first);
 
-        expect(entry?.key.toStringUtf8(), equals('123'));
-        expect(entry?.data.toBytes(), equals([0xFF, 0xFE, 0xFD]));
+        expect(entry?.key.toUtf8String(), equals('123'));
+        expect(entry?.data.asBytes(), equals([0xFF, 0xFE, 0xFD]));
 
         entry = db.cursorGet(cursor, null, CursorOp.next);
-        expect(entry?.key.toStringUtf8(), equals('456'));
-        expect(entry?.data.toBytes(), equals([0xAA, 0xBB, 0xCC]));
+        expect(entry?.key.toUtf8String(), equals('456'));
+        expect(entry?.data.asBytes(), equals([0xAA, 0xBB, 0xCC]));
       } finally {
         db.cursorClose(cursor);
       }

@@ -70,7 +70,7 @@ void main() {
     final result = db.getAuto(LMDBVal.fromUtf8(key));
 
     expect(result, isNotNull);
-    expect(result!.toStringUtf8(), equals(value));
+    expect(result!.toUtf8String(), equals(value));
   });
 
   test('Delete data with auto transaction', () async {
@@ -122,7 +122,7 @@ void main() {
     try {
       for (var entry in testData.entries) {
         final result = db.get(readTxn, LMDBVal.fromUtf8(entry.key));
-        expect(result!.toStringUtf8(), equals(entry.value));
+        expect(result!.toUtf8String(), equals(entry.value));
       }
       db.txnCommit(readTxn);
     } catch (e) {
@@ -136,7 +136,7 @@ void main() {
       LMDBVal.fromUtf8('Auto Transaction Test'),
     );
     final autoResult = db.getAuto(LMDBVal.fromUtf8('auto_key'));
-    expect(autoResult!.toStringUtf8(), equals('Auto Transaction Test'));
+    expect(autoResult!.toUtf8String(), equals('Auto Transaction Test'));
 
     db.close();
   });

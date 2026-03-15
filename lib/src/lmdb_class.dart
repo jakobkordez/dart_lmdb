@@ -854,7 +854,7 @@ class LMDB {
   List<String> _getDbNames(Pointer<MDB_txn> txn) {
     final value = get(txn, LMDBVal.fromUtf8(_dbNamesKey));
     if (value == null) return [];
-    return value.toStringUtf8().split(',').where((s) => s.isNotEmpty).toList();
+    return value.toUtf8String().split(',').where((s) => s.isNotEmpty).toList();
   }
 
   /// Saves the list of database names

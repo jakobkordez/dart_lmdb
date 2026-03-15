@@ -51,11 +51,13 @@ class LMDBVal {
     return LMDBVal._(ptr, null);
   }
 
-  String toStringUtf8() {
+  String toUtf8String() {
     return _ptr.ref.mv_data.cast<Utf8>().toDartString(length: _ptr.ref.mv_size);
   }
 
-  List<int> asBytes() {
-    return _ptr.ref.mv_data.cast<Uint8>().asTypedList(_ptr.ref.mv_size);
+  Uint8List asBytes({bool copy = true}) {
+    final r = _ptr.ref.mv_data.cast<Uint8>().asTypedList(_ptr.ref.mv_size);
+    if (!copy) return r;
+    return Uint8List.fromList(r);
   }
 }
