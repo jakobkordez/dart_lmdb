@@ -174,7 +174,7 @@ class LMDB {
   /// ```
   void init(String dbPath, {LMDBInitConfig? config, LMDBFlagSet? flags}) {
     if (_env != null) {
-      close();
+      throw StateError('Database already initialized');
     }
 
     final effectiveFlags = flags ?? LMDBFlagSet.defaultFlags;
