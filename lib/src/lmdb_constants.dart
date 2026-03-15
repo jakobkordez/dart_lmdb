@@ -14,7 +14,7 @@ import 'generated_bindings.dart' as bindings;
 ///
 /// Example:
 /// ```dart
-///     await db.init(path,
+///     db.init(path,
 ///         flags: LMDBFlagSet()..add(MDB_RDONLY));
 /// ````
 ///
@@ -31,13 +31,13 @@ const MDB_RDONLY = bindings.MDB_RDONLY;
 /// - Simplifies deployment and file management
 ///
 /// Common usage scenarios:
-/// - Embedded applications (e.g. bundleed assets in mobile apps)
+/// - Embedded applications (e.g. bundled assets in mobile apps)
 /// - Simple deployments
 /// - Single-file distribution
 ///
 /// Example:
 /// ```dart
-///     await db.init("mydb.lmdb",
+///     db.init("mydb.lmdb",
 ///         flags: LMDBFlagSet()..add(MDB_NOSUBDIR));
 /// ```
 /// Considerations:
@@ -61,7 +61,7 @@ const MDB_NOSUBDIR = bindings.MDB_NOSUBDIR;
 ///
 /// Example:
 /// ```dart
-///     await db.init(path,
+///     db.init(path,
 ///         flags: LMDBFlagSet()..add(MDB_NOSYNC));
 /// ````
 ///
@@ -85,7 +85,7 @@ const MDB_NOSYNC = bindings.MDB_NOSYNC;
 ///
 /// Example:
 /// ```dart
-///     await db.init(path,
+///     db.init(path,
 ///         flags: LMDBFlagSet()..add(MDB_NOMETASYNC));
 /// ````
 ///
@@ -109,7 +109,7 @@ const MDB_NOMETASYNC = bindings.MDB_NOMETASYNC;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 ///     flags: LMDBFlagSet()..add(MDB_WRITEMAP));
 /// ```
 ///
@@ -133,7 +133,7 @@ const MDB_WRITEMAP = bindings.MDB_WRITEMAP;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 /// flags: LMDBFlagSet()
 /// ..add(MDB_WRITEMAP)
 /// ..add(MDB_MAPASYNC));
@@ -145,7 +145,7 @@ const MDB_WRITEMAP = bindings.MDB_WRITEMAP;
 /// - Not suitable for critical data
 const MDB_MAPASYNC = bindings.MDB_MAPASYNC;
 
-//// Creates the named database if it doesn't exist.
+/// Creates the named database if it doesn't exist.
 ///
 /// When used:
 /// - Automatically creates missing databases
@@ -159,7 +159,7 @@ const MDB_MAPASYNC = bindings.MDB_MAPASYNC;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 ///     flags: LMDBFlagSet()..add(MDB_CREATE));
 /// ```
 ///
@@ -183,7 +183,7 @@ const MDB_CREATE = bindings.MDB_CREATE;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 /// flags: LMDBFlagSet()..add(MDB_NOTLS));
 /// ```
 /// Considerations:
@@ -206,7 +206,7 @@ const MDB_NOTLS = bindings.MDB_NOTLS;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 ///     flags: LMDBFlagSet()
 ///       ..add(MDB_RDONLY)
 ///       ..add(MDB_NOLOCK));
@@ -231,7 +231,7 @@ const MDB_NOLOCK = bindings.MDB_NOLOCK;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 ///     flags: LMDBFlagSet()..add(MDB_NOMEMINIT));`
 /// ````
 ///
@@ -255,7 +255,7 @@ const MDB_NOMEMINIT = bindings.MDB_NOMEMINIT;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 ///     flags: LMDBFlagSet()..add(MDB_NORDAHEAD));`
 /// ````
 ///
@@ -279,7 +279,7 @@ const MDB_NORDAHEAD = bindings.MDB_NORDAHEAD;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path,
+/// db.init(path,
 ///     flags: LMDBFlagSet()..add(MDB_FIXEDMAP));`
 /// ````
 ///
@@ -303,7 +303,7 @@ const MDB_FIXEDMAP = bindings.MDB_FIXEDMAP;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path, flags: LMDBFlagSet()..add(MDB_PREVSNAPSHOT));
+/// db.init(path, flags: LMDBFlagSet()..add(MDB_PREVSNAPSHOT));
 /// ```
 ///
 /// Benefits:
@@ -335,10 +335,10 @@ const MDB_PREVSNAPSHOT = bindings.MDB_PREVSNAPSHOT;
 ///
 /// Usage example:
 /// ```dart
-/// await db.init(path, flags: LMDBFlagSet()..add(MDB_REVERSEKEY));
-/// await db.putUtf8(txn, "abc1", "value1");
-/// await db.putUtf8(txn, "abc2", "value2");
-/// await db.putUtf8(txn, "abd1", "value2");
+/// db.init(path, flags: LMDBFlagSet()..add(MDB_REVERSEKEY));
+/// db.putUtf8(txn, "abc1", "value1");
+/// db.putUtf8(txn, "abc2", "value2");
+/// db.putUtf8(txn, "abd1", "value2");
 /// ```
 ///
 /// Performance:
@@ -361,7 +361,7 @@ const MDB_REVERSEKEY = bindings.MDB_REVERSEKEY;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT));
+/// db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT));
 /// ```
 ///
 /// Features:
@@ -387,7 +387,7 @@ const MDB_DUPSORT = bindings.MDB_DUPSORT;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path, flags: LMDBFlagSet()..add(MDB_INTEGERKEY));
+/// db.init(path, flags: LMDBFlagSet()..add(MDB_INTEGERKEY));
 /// ```
 ///
 /// Requirements:
@@ -410,7 +410,7 @@ const MDB_INTEGERKEY = bindings.MDB_INTEGERKEY;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT)..add(MDB_DUPFIXED));
+/// db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT)..add(MDB_DUPFIXED));
 /// ```
 ///
 /// Requirements:
@@ -433,7 +433,7 @@ const MDB_DUPFIXED = bindings.MDB_DUPFIXED;
 ///
 /// Example:
 /// ```dart
-/// await db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT)..add(MDB_REVERSEDUP));
+/// db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT)..add(MDB_REVERSEDUP));
 /// ```
 ///
 /// Note:
@@ -464,7 +464,7 @@ const MDB_INTEGERDUP = bindings.MDB_INTEGERDUP;
 /// Example:
 /// ```dart
 ///     // Will fail if 'my_key' already exists
-///     await db.put(txn, 'my_key', 'value',
+///     db.put(txn, 'my_key', 'value',
 ///                 flags: LMDBFlagSet()..add(MDB_NOOVERWRITE));
 /// ```
 /// Related errors:

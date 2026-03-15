@@ -11,7 +11,7 @@ import 'lmdb_native.dart';
 /// Example:
 /// ```dart
 /// try {
-///   await db.put(txn, 'key', 'value');
+///   db.put(txn, 'key', 'value');
 /// } catch (e) {
 ///   if (e is LMDBException) {
 ///     print('LMDB error: ${e.errorString}');
