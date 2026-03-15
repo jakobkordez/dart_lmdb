@@ -71,7 +71,7 @@ class LMDB {
   static const String _errDbNotInitialized = 'Database not initialized';
 
   /// Cache for database handles
-  final Map<String, int> _dbiCache = {};
+  final Map<String?, int> _dbiCache = {};
 
   /// Checks if the database has been initialized.
   bool get isInitialized => _env != null;
@@ -871,10 +871,6 @@ class LMDB {
   ///
   /// Returns database handle (dbi)
   int _getDatabase(Pointer<MDB_txn> txn, {String? name, LMDBFlagSet? flags}) {
-    if (name == null) {
-      return _openDatabase(txn, flags: flags);
-    }
-
     if (_dbiCache.containsKey(name)) {
       return _dbiCache[name]!;
     }
