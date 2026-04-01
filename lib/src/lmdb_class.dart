@@ -626,6 +626,7 @@ class LMDB {
   void delete(
     Pointer<MDB_txn> txn,
     LMDBVal key, {
+    LMDBVal? data,
     String? dbName,
     LMDBFlagSet? flags,
   }) {
@@ -633,7 +634,7 @@ class LMDB {
 
     final dbi = _getDatabase(txn, name: dbName, flags: flags);
 
-    final result = _lib.mdb_del(txn, dbi, key.ptr, nullptr);
+    final result = _lib.mdb_del(txn, dbi, key.ptr, data?.ptr ?? nullptr);
 
     if (result != 0 && result != MDB_NOTFOUND) {
       throw LMDBException('Failed to delete data', result);
