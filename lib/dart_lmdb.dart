@@ -8,308 +8,268 @@
 /// * Zero-copy lookup for read operations
 ///
 /// This Dart wrapper adds the following features:
-/// * Automatic transaction management for simple operations
-/// * UTF-8 string support for keys and values
-/// * Named databases with automatic handle management
-/// * Comprehensive statistics and analysis tools
+/// * [LMDB.withTransaction] and convenience [LMDB.put] / [LMDB.get] helpers
+/// * [LMDBVal] byte keys and values (including UTF-8 helpers)
+/// * Named sub-databases via the `dbName` parameter and [LMDBTransaction.getDatabase]
+/// * [DatabaseStats], [LMDBCursor], and environment utilities
 /// * Safe memory management through FFI
 ///
-/// # Basic Usage
+/// The API is **synchronous**; there are no `async` database methods.
 ///
-/// Simple string operations with automatic transactions:
+/// # Basic usage
+///
+/// Create [LMDBVal] instances for keys and values, then call [LMDB.put] and [LMDB.get].
+/// Dispose [LMDBVal]s when you no longer need them (values returned from [LMDB.get]
+/// are owned by you until [LMDBVal.dispose]).
+///
 /// ```dart
 /// final db = LMDB();
-/// await db.init('/path/to/db');
+/// db.init('/path/to/db');
 ///
-/// // Store and retrieve data
-/// await db.putUtf8Auto('key', 'value');
-/// final value = await db.getUtf8Auto('key');
+/// final key = LMDBVal.fromUtf8('key');
+/// final value = LMDBVal.fromUtf8('value');
+/// db.put(key, value);
+///
+/// final found = db.get(key);
+/// try {
+///   // use found …
+/// } finally {
+///   key.dispose();
+///   value.dispose();
+///   found?.dispose();
+/// }
 ///
 /// db.close();
 /// ```
 ///
-/// # Named Databases
+/// # Named databases
 ///
-/// LMDB supports multiple named databases within a single environment:
+/// LMDB supports multiple named databases in one environment. Set [LMDBInitConfig.maxDbs]
+/// high enough when calling [LMDB.init], then pass `dbName` to [LMDB.put], [LMDB.get], and
+/// related methods. There is no built-in API to list sub-database names; names are
+/// application-defined.
+///
 /// ```dart
-/// // Initialize with support for multiple DBs
-/// await db.init('/path/to/db',
+/// db.init(
+///   '/path/to/db',
 ///   config: LMDBInitConfig(
-///     mapSize: 10 * 1024 * 1024,  // 10 MB
-///     maxDbs: 5,  // Support up to 5 named DBs
-///   )
+///     mapSize: 10 * 1024 * 1024, // 10 MB
+///     maxDbs: 5,
+///   ),
 /// );
 ///
-/// // Store data in different named databases
-/// await db.putUtf8Auto('key', 'value1', dbName: 'users');
-/// await db.putUtf8Auto('key', 'value2', dbName: 'settings');
+/// final k = LMDBVal.fromUtf8('key');
+/// db.put(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value1'), dbName: 'users');
+/// db.put(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value2'), dbName: 'settings');
 ///
-/// // Data is separated by database
-/// print(await db.getUtf8Auto('key', dbName: 'users'));     // value1
-/// print(await db.getUtf8Auto('key', dbName: 'settings'));  // value2
-///
-/// // List all named databases
-/// final databases = await db.listDatabases();
+/// print(db.get(k, dbName: 'users')?.toUtf8String()); // value1
+/// print(db.get(k, dbName: 'settings')?.toUtf8String()); // value2
+/// k.dispose();
 /// ```
 ///
-/// # Transaction Management
+/// # Transaction management
 ///
-/// For better control and performance, use explicit transactions:
+/// For batching or explicit control, use [LMDB.txnStart] or [LMDB.withTransaction].
+///
 /// ```dart
-/// final txn = await db.txnStart();
+/// final txn = db.txnStart();
 /// try {
-///   // Multiple operations in one atomic transaction
-///   await db.putUtf8(txn, 'key1', 'value1', dbName: 'users');
-///   await db.putUtf8(txn, 'key2', 'value2', dbName: 'users');
-///   await db.txnCommit(txn);
+///   txn.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'), dbName: 'users');
+///   txn.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'), dbName: 'users');
+///   txn.commit();
 /// } catch (e) {
-///   await db.txnAbort(txn);
+///   txn.abort();
 ///   rethrow;
 /// }
 /// ```
 ///
-/// Read-only transactions for better concurrency:
+/// Read-only transactions (better concurrency for readers):
+///
 /// ```dart
-/// final readTxn = await db.txnStart(
-///   flags: LMDBFlagSet()..add(MDB_RDONLY)
-/// );
+/// final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
+/// try {
+///   final v = readTxn.get(LMDBVal.fromUtf8('key'));
+///   readTxn.commit();
+/// } catch (e) {
+///   readTxn.abort();
+///   rethrow;
+/// }
 /// ```
 ///
-/// # Performance Features
+/// # Performance-oriented environment flags
 ///
-/// Optimize for specific use cases:
 /// ```dart
-/// // High-performance mode (less durability)
-/// await db.init('/path/to/db',
-///   flags: LMDBFlagSet()
-///     ..add(MDB_NOSYNC)      // Don't sync to disk immediately
-///     ..add(MDB_WRITEMAP)    // Use write-ahead mapping
+/// db.init(
+///   '/path/to/db',
+///   flags: {
+///     LMDBEnvFlag.noSync, // less durability, faster writes
+///     LMDBEnvFlag.writeMap,
+///   },
 /// );
 ///
-/// // Configure map size for expected data volume
-/// await db.init('/path/to/db',
+/// db.init(
+///   '/path/to/db',
 ///   config: LMDBInitConfig.fromEstimate(
 ///     expectedEntries: 1000000,
 ///     averageKeySize: 16,
 ///     averageValueSize: 64,
-///   )
+///   ),
 /// );
 /// ```
 ///
-/// # LMDB MapSize Behavior
+/// Presets such as [LMDBFlagSet.readOnly] and [LMDBFlagSet.highPerformance] are available.
 ///
-/// The MapSize in LMDB determines the maximum database size and behaves as follows:
+/// # Map size behavior
 ///
-/// 1. Read-Only Access:
-/// - Databases can be opened with any MapSize (even smaller) in read-only mode
-/// - Perfect for use cases like dictionaries or lookups where only reading is required
-/// - The actual DB size can be determined using statsAuto()
+/// The map size sets the maximum database size:
 ///
-/// 2. Write Access:
-/// - MapSize must be at least as large as the current DB size
-/// - Write operations will fail with MDB_MAP_FULL when MapSize limit is reached
-/// - MapSize can only be set when opening the DB, not during runtime
+/// 1. **Read-only access:** The environment can be opened with [LMDBEnvFlag.readOnly]; map size
+///    requirements differ from read-write opens.
+/// 2. **Write access:** Map size must be at least the current on-disk size; growth beyond
+///    the map size fails with `MDB_MAP_FULL`. Map size is fixed for a given open.
+/// 3. **Adjusting size:** Close the environment and reopen with a larger [LMDBInitConfig.mapSize].
 ///
-/// 3. Size Adjustment:
-/// - A DB can be reopened with larger MapSize to allow growth
-/// - It's recommended to reserve more MapSize than currently needed
-/// - Typical pattern: Open read-only to check size -> Close -> Reopen with proper MapSize
-///
-/// Example Usage:
 /// ```dart
-///     final db = LMDB();
-///     // Open with 100MB initial size
-///     await db.init(path, config: LMDBInitConfig(mapSize: 100 * 1024 * 1024));
+/// final db = LMDB();
+/// db.init('/path/to/db', config: LMDBInitConfig(mapSize: 100 * 1024 * 1024));
 /// ```
 ///
-/// Note: MapSize can be important for performance and resource management. Choose it based on:
-/// - Expected data growth
-/// - Available system resources
-/// - Application requirements
-/// - Even with small MapSize (e.g. 1MB for a 100MB DB), LMDB maintains very good performance !
+/// Choose map size from expected data growth, available memory, and workload.
 ///
-/// # Monitoring and Analysis
+/// # Monitoring and analysis
 ///
-/// Track database health and performance:
 /// ```dart
-/// // Get statistics for specific database
-/// final stats = await db.statsAuto(dbName: 'users');
-/// print('Entries: ${stats.entries}');
-/// print('Tree depth: ${stats.depth}');
+/// final stats = db.stats(dbName: 'users');
+/// print('Entries: ${stats.entries}, depth: ${stats.depth}');
+/// print(stats.analyzeUsage());
 ///
-/// // Analyze database efficiency
-/// final analysis = await db.analyzeUsage();
-/// print(analysis);
+/// final efficiency = stats.analyzeEfficiency();
+/// if (!efficiency.isWellBalanced) {
+///   print('Tree balance may warrant review');
+/// }
 ///
-/// // Monitor all databases
-/// final allStats = await db.getAllDatabaseStats();
-/// allStats.forEach((dbName, stats) {
-///   print('$dbName: ${stats.entries} entries');
-/// });
+/// final envStats = db.getEnvironmentStats();
+/// print('Environment entries: ${envStats.entries}');
 /// ```
 ///
-/// # Common Use Cases
+/// # Common use cases
 ///
-/// 1. Simple Key-Value Store:
-/// * Use automatic methods (putUtf8Auto, getUtf8Auto)
-/// * Perfect for configuration storage, caching
+/// 1. **Simple key-value store:** Use [LMDB.put] / [LMDB.get] with [LMDBVal.fromUtf8] or
+///    [LMDBVal.fromBytes].
+/// 2. **Multiple logical tables:** Use named databases (`dbName`) with `maxDbs` set in config.
+/// 3. **Batch writes:** Use one [LMDBTransaction] and multiple [LMDBTransaction.put] calls
+///    before [LMDBTransaction.commit].
+/// 4. **Concurrent access:** Many read transactions can overlap; at most one write
+///    transaction at a time per environment.
 ///
-/// 2. Multiple Data Types:
-/// * Use named databases to separate different data types
-/// * Each database can have its own configuration
+/// # Best practices
 ///
-/// 3. High-Performance Requirements:
-/// * Use explicit transactions for batching
-/// * Configure flag sets for specific durability needs
-/// * Adjust map size based on data volume
+/// * Call [LMDB.close] (or [LMDB.dispose]) when the environment is no longer needed.
+/// * Pair [LMDB.txnStart] with [LMDBTransaction.commit] or [LMDBTransaction.abort] in
+///   `try`/`finally`.
+/// * Size the map appropriately before heavy writes.
+/// * Prefer read-only transactions ([LMDBEnvFlag.readOnly]) for read-heavy workloads.
+/// * Dispose [LMDBVal] instances you allocate; dispose values returned from [LMDB.get].
 ///
-/// 4. Concurrent Access:
-/// * Multiple readers can access simultaneously
-/// * Use read-only transactions when possible
-/// * Single writer ensures data consistency
+/// # Error handling
 ///
-/// # Best Practices
+/// Failures from the native library throw [LMDBException]:
 ///
-/// * Always close the database when done
-/// * Use try-catch blocks with transactions
-/// * Configure map size appropriately
-/// * Monitor database statistics for optimization
-/// * Use named databases for data organization
-/// * Consider using read-only transactions for queries
-/// # Error Handling
-///
-/// The library provides specific error handling through LMDBException:
 /// ```dart
 /// try {
-///   await db.putUtf8Auto('key', 'value');
+///   db.put(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
 /// } catch (e) {
 ///   if (e is LMDBException) {
-///     print('LMDB Error: ${e.errorString}');
-///     print('Error code: ${e.errorCode}');
+///     print('LMDB: ${e.errorString} (${e.errorCode})');
 ///   }
 /// }
 /// ```
 ///
-/// # Database Organization
+/// # Database organization
 ///
-/// Named databases can be used to organize different types of data:
 /// ```dart
-/// // Initialize with multiple databases
-/// await db.init('/path/to/db',
-///   config: LMDBInitConfig(maxDbs: 5)
-/// );
+/// import 'dart:convert';
 ///
-/// // Users database
-/// await db.putUtf8Auto(
-///   'user:123',
-///   jsonEncode({'name': 'John', 'age': 30}),
-///   dbName: 'users'
-/// );
-///
-/// // Settings database
-/// await db.putUtf8Auto(
-///   'theme',
-///   jsonEncode({'dark': true, 'fontSize': 14}),
-///   dbName: 'settings'
-/// );
-///
-/// // Logs database
-/// await db.putUtf8Auto(
-///   DateTime.now().toIso8601String(),
-///   'Application started',
-///   dbName: 'logs'
-/// );
+/// void putJson(LMDB env, String dbName, String key, Object obj) {
+///   final k = LMDBVal.fromUtf8(key);
+///   final v = LMDBVal.fromUtf8(jsonEncode(obj));
+///   env.put(k, v, dbName: dbName);
+///   k.dispose();
+///   v.dispose();
+/// }
 /// ```
 ///
-/// # Database Maintenance
+/// # Maintenance
 ///
-/// Regular maintenance tasks:
 /// ```dart
-/// // Ensure data is synced to disk
-/// await db.sync(true);
+/// db.sync(true); // flush to disk
 ///
-/// // Check database statistics
-/// final stats = await db.getEnvironmentStats();
+/// final stats = db.getEnvironmentStats();
 /// if (stats.overflowPages > 0) {
-///   print('Warning: Database has overflow pages');
+///   print('Warning: overflow pages present');
 /// }
 ///
-/// // Monitor database growth
-/// final efficiency = LMDBConfig.analyzeEfficiency(stats);
+/// final efficiency = stats.analyzeEfficiency();
 /// if (!efficiency.isWellBalanced) {
-///   print('Warning: B+ tree needs optimization');
+///   print('Warning: B+ tree balance may be suboptimal');
 /// }
 /// ```
 ///
-/// # Platform Specifics
+/// # Platform notes
 ///
-/// LMDB behavior can vary by platform:
-/// * Windows: Some features like MDB_WRITEMAP might not work as expected
-/// * Linux/Unix: Full feature support, including file permissions
-/// * macOS: Similar to Linux/Unix with some performance differences
+/// * **Windows:** Some flags (e.g. [LMDBEnvFlag.writeMap]) may behave differently than on Unix.
+/// * **Linux / macOS:** Typical Unix file modes apply via [LMDBInitConfig.mode].
 ///
-/// Configure accordingly:
 /// ```dart
+/// import 'dart:io';
+///
 /// if (Platform.isWindows) {
-///   await db.init('/path/to/db',
-///     flags: LMDBFlagSet()..add(MDB_NOSYNC)  // Skip MDB_WRITEMAP on Windows
-///   );
+///   db.init('/path/to/db', flags: {LMDBEnvFlag.noSync});
 /// } else {
-///   await db.init('/path/to/db',
-///     flags: LMDBFlagSet()
-///       ..add(MDB_NOSYNC)
-///       ..add(MDB_WRITEMAP),
-///     config: LMDBInitConfig(mode: '644')  // Unix permissions
+///   db.init(
+///     '/path/to/db',
+///     flags: {LMDBEnvFlag.noSync},
+///     config: LMDBInitConfig(mapSize: 64 * 1024 * 1024, mode: '644'),
 ///   );
 /// }
 /// ```
 ///
-/// # Performance Optimization
+/// # Batching example
 ///
-/// Tips for optimal performance:
-/// * Use appropriate map sizes to avoid reallocations
-/// * Batch operations in transactions
-/// * Use read-only transactions for queries
-/// * Consider durability vs speed tradeoffs
-///
-/// Example of batch processing:
 /// ```dart
-/// final txn = await db.txnStart();
+/// final txn = db.txnStart();
 /// try {
 ///   for (var i = 0; i < 1000; i++) {
-///     await db.putUtf8(
-///       txn,
-///       'key$i',
-///       'value$i',
-///       dbName: 'batch_data'
+///     txn.put(
+///       LMDBVal.fromUtf8('key$i'),
+///       LMDBVal.fromUtf8('value$i'),
+///       dbName: 'batch_data',
 ///     );
 ///   }
-///   await db.txnCommit(txn);
+///   txn.commit();
 /// } catch (e) {
-///   await db.txnAbort(txn);
+///   txn.abort();
 ///   rethrow;
 /// }
 /// ```
 ///
-/// # Memory Management
+/// # Memory and [LMDBVal]
 ///
-/// LMDB uses memory-mapped files, so consider:
-/// * Set appropriate map sizes for your data
-/// * Monitor system memory usage
-/// * Use efficient key/value sizes
-/// * Clean up with dispose() when done
+/// LMDB memory-maps the file; your process address space should accommodate the map size.
+/// [LMDBVal] wraps native buffers — dispose them when done to free allocations held by
+/// the wrapper. Use [LMDBCursor] for iteration; call [LMDBCursor.close] when finished.
 ///
-/// Example of memory-conscious initialization:
 /// ```dart
-/// await db.init('/path/to/db',
+/// db.init(
+///   '/path/to/db',
 ///   config: LMDBInitConfig(
 ///     mapSize: LMDBConfig.calculateMapSize(
 ///       expectedEntries: 1000000,
 ///       averageKeySize: 16,
 ///       averageValueSize: 64,
-///       overheadFactor: 1.5
-///     )
-///   )
+///       overheadFactor: 1.5,
+///     ),
+///   ),
 /// );
 /// ```
 library;
@@ -318,9 +278,8 @@ export 'src/database_stats.dart';
 export 'src/lmdb_class.dart';
 export 'src/lmdb_config.dart';
 export 'src/lmdb_constants.dart';
-export 'src/lmdb_cursor.dart';
+export 'src/cursor_op.dart';
 export 'src/lmdb_entry.dart';
 export 'src/lmdb_exception.dart';
 export 'src/lmdb_flags.dart';
 export 'src/lmdb_val.dart';
-export 'src/generated_bindings.dart' show MDB_txn, MDB_cursor;

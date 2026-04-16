@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 import 'package:test/test.dart';
@@ -6,23 +5,11 @@ import 'package:path/path.dart' as path;
 import 'package:dart_lmdb/dart_lmdb.dart';
 
 // Helper function for transaction management
-Future<T> _withTransaction<T>(
+T _withTransaction<T>(
   LMDB db,
-  Future<T> Function(Pointer<MDB_txn> txn) action, {
+  T Function(LMDBTransaction) action, {
   bool readOnly = false,
-}) async {
-  final txn = db.txnStart(
-    flags: readOnly ? (LMDBFlagSet()..add(MDB_RDONLY)) : null,
-  );
-  try {
-    final result = await action(txn);
-    db.txnCommit(txn);
-    return result;
-  } catch (e) {
-    db.txnAbort(txn);
-    rethrow;
-  }
-}
+}) => db.withTransaction(action, flags: readOnly ? LMDBFlagSet.readOnly : null);
 
 // Helper class for pagination results
 class PageResult {
@@ -96,35 +83,34 @@ void main() {
     // Write test data
     final writeTxn = db.txnStart();
     try {
-      final cursor = db.cursorOpen(writeTxn);
+      final cursor = writeTxn.cursorOpen();
       try {
         for (var entry in testData.entries) {
-          db.cursorPut(
-            cursor,
+          cursor.put(
             LMDBVal.fromUtf8(entry.key),
             LMDBVal.fromUtf8(entry.value),
           );
         }
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // Test reading operations
-    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final cursor = db.cursorOpen(readTxn);
+      final cursor = readTxn.cursorOpen();
       try {
         // Test cursor count
-        final count = db.stats(readTxn).entries;
+        final count = readTxn.stats().entries;
         expect(count, equals(testData.length));
 
         // Test iteration through all entries
-        var entry = db.cursorGet(cursor, null, CursorOp.first);
+        var entry = cursor.getAuto(null, CursorOp.first);
         var foundEntries = 0;
         while (entry != null) {
           final key = entry.key.toUtf8String();
@@ -134,79 +120,67 @@ void main() {
           expect(testData[key], equals(data));
 
           foundEntries++;
-          entry = db.cursorGet(cursor, null, CursorOp.next);
+          entry = cursor.getAuto(null, CursorOp.next);
         }
         expect(foundEntries, equals(testData.length));
 
         // Test specific key lookup
         final specificKey = 'user:2';
-        entry = db.cursorGet(
-          cursor,
-          LMDBVal.fromUtf8(specificKey),
-          CursorOp.set,
-        );
+        entry = cursor.getAuto(LMDBVal.fromUtf8(specificKey), CursorOp.set);
         expect(entry, isNotNull);
         expect(entry?.key.toUtf8String(), equals(specificKey));
         expect(entry?.data.toUtf8String(), equals(testData[specificKey]));
 
         // Test range search
-        entry = db.cursorGet(
-          cursor,
-          LMDBVal.fromUtf8('user:'),
-          CursorOp.setRange,
-        );
+        entry = cursor.getAuto(LMDBVal.fromUtf8('user:'), CursorOp.setRange);
         expect(entry, isNotNull);
         expect(
           entry?.key.toUtf8String(),
           equals('user:1'),
         ); // Should find first user
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(readTxn);
+      readTxn.commit();
     } catch (e) {
-      db.txnAbort(readTxn);
+      readTxn.abort();
       rethrow;
     }
 
     // Test deletion in a separate write transaction
     final deleteTxn = db.txnStart();
     try {
-      final cursor = db.cursorOpen(deleteTxn);
+      final cursor = deleteTxn.cursorOpen();
       try {
-        db.cursorGet(cursor, LMDBVal.fromUtf8('user:2'), CursorOp.set);
-        db.cursorDelete(cursor);
+        cursor.getAuto(LMDBVal.fromUtf8('user:2'), CursorOp.set);
+        cursor.delete();
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(deleteTxn);
+      deleteTxn.commit();
     } catch (e) {
-      db.txnAbort(deleteTxn);
+      deleteTxn.abort();
       rethrow;
     }
 
     // Verify deletion in a final read transaction
-    final verifyTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final verifyTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final cursor = db.cursorOpen(verifyTxn);
+      final cursor = verifyTxn.cursorOpen();
       try {
         // Verify deletion
-        final entry = db.cursorGet(
-          cursor,
-          LMDBVal.fromUtf8('user:2'),
-          CursorOp.set,
-        );
+        final entry = cursor.getAuto(LMDBVal.fromUtf8('user:2'), CursorOp.set);
         expect(entry, isNull);
 
         // Verify remaining count
-        final newCount = db.stats(verifyTxn).entries;
+        final newCount = verifyTxn.stats().entries;
         expect(newCount, equals(testData.length - 1));
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(verifyTxn);
+      verifyTxn.commit();
     } catch (e) {
-      db.txnAbort(verifyTxn);
+      verifyTxn.abort();
       rethrow;
     }
   });
@@ -251,33 +225,31 @@ void main() {
     // Write test data
     final writeTxn = db.txnStart();
     try {
-      final cursor = db.cursorOpen(writeTxn);
+      final cursor = writeTxn.cursorOpen();
       try {
         for (var entry in testData.entries) {
-          db.cursorPut(
-            cursor,
+          cursor.put(
             LMDBVal.fromUtf8(entry.key),
             LMDBVal.fromUtf8(entry.value),
           );
         }
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // Read and verify groups
-    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final cursor = db.cursorOpen(readTxn);
+      final cursor = readTxn.cursorOpen();
       try {
         // Test customer group
         var customerEntries = <String, String>{};
-        var entry = db.cursorGet(
-          cursor,
+        var entry = cursor.getAuto(
           LMDBVal.fromUtf8('customer:'),
           CursorOp.setRange,
         );
@@ -285,7 +257,7 @@ void main() {
         while (entry != null &&
             entry.key.toUtf8String().startsWith('customer:')) {
           customerEntries[entry.key.toUtf8String()] = entry.data.toUtf8String();
-          entry = db.cursorGet(cursor, null, CursorOp.next);
+          entry = cursor.getAuto(null, CursorOp.next);
         }
 
         expect(customerEntries.length, equals(9)); // 3 customers × 3 fields
@@ -296,16 +268,12 @@ void main() {
 
         // Test product group
         var productEntries = <String, String>{};
-        entry = db.cursorGet(
-          cursor,
-          LMDBVal.fromUtf8('product:'),
-          CursorOp.setRange,
-        );
+        entry = cursor.getAuto(LMDBVal.fromUtf8('product:'), CursorOp.setRange);
 
         while (entry != null &&
             entry.key.toUtf8String().startsWith('product:')) {
           productEntries[entry.key.toUtf8String()] = entry.data.toUtf8String();
-          entry = db.cursorGet(cursor, null, CursorOp.next);
+          entry = cursor.getAuto(null, CursorOp.next);
         }
 
         expect(productEntries.length, equals(9)); // 3 products × 3 fields
@@ -316,15 +284,11 @@ void main() {
 
         // Test order group
         var orderEntries = <String, String>{};
-        entry = db.cursorGet(
-          cursor,
-          LMDBVal.fromUtf8('order:'),
-          CursorOp.setRange,
-        );
+        entry = cursor.getAuto(LMDBVal.fromUtf8('order:'), CursorOp.setRange);
 
         while (entry != null && entry.key.toUtf8String().startsWith('order:')) {
           orderEntries[entry.key.toUtf8String()] = entry.data.toUtf8String();
-          entry = db.cursorGet(cursor, null, CursorOp.next);
+          entry = cursor.getAuto(null, CursorOp.next);
         }
 
         expect(orderEntries.length, equals(9)); // 3 orders × 3 fields
@@ -332,8 +296,7 @@ void main() {
 
         // Test specific customer data
         var customer2Data = <String, String>{};
-        entry = db.cursorGet(
-          cursor,
+        entry = cursor.getAuto(
           LMDBVal.fromUtf8('customer:002:'),
           CursorOp.setRange,
         );
@@ -341,7 +304,7 @@ void main() {
         while (entry != null &&
             entry.key.toUtf8String().startsWith('customer:002:')) {
           customer2Data[entry.key.toUtf8String()] = entry.data.toUtf8String();
-          entry = db.cursorGet(cursor, null, CursorOp.next);
+          entry = cursor.getAuto(null, CursorOp.next);
         }
 
         expect(customer2Data.length, equals(3));
@@ -369,11 +332,11 @@ void main() {
         );
         expect(orderEntries.keys.any((k) => k.startsWith('product:')), isFalse);
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(readTxn);
+      readTxn.commit();
     } catch (e) {
-      db.txnAbort(readTxn);
+      readTxn.abort();
       rethrow;
     }
   });
@@ -388,28 +351,27 @@ void main() {
     // Write test data
     final writeTxn = db.txnStart();
     try {
-      final cursor = db.cursorOpen(writeTxn);
+      final cursor = writeTxn.cursorOpen();
       try {
         for (var entry in testEntries) {
-          db.cursorPut(
-            cursor,
+          cursor.put(
             LMDBVal.fromUtf8(entry.key),
             LMDBVal.fromUtf8(entry.value),
           );
         }
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // Test pagination
-    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final cursor = db.cursorOpen(readTxn);
+      final cursor = readTxn.cursorOpen();
       try {
         // Test parameters
         const pageSize = 10;
@@ -420,17 +382,17 @@ void main() {
           final results = <LMDBEntry>[];
 
           // Always start from the beginning for each page request
-          var entry = db.cursorGet(cursor, null, CursorOp.first);
+          var entry = cursor.getAuto(null, CursorOp.first);
 
           // Skip entries for the requested page
           for (var i = 0; i < pageNumber * pageSize && entry != null; i++) {
-            entry = db.cursorGet(cursor, null, CursorOp.next);
+            entry = cursor.getAuto(null, CursorOp.next);
           }
 
           // Collect entries for current page
           for (var i = 0; i < pageSize && entry != null; i++) {
             results.add(entry);
-            entry = db.cursorGet(cursor, null, CursorOp.next);
+            entry = cursor.getAuto(null, CursorOp.next);
           }
 
           return results;
@@ -477,11 +439,11 @@ void main() {
           );
         }
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(readTxn);
+      readTxn.commit();
     } catch (e) {
-      db.txnAbort(readTxn);
+      readTxn.abort();
       rethrow;
     }
   });
@@ -497,28 +459,27 @@ void main() {
     // Write test data
     final writeTxn = db.txnStart();
     try {
-      final cursor = db.cursorOpen(writeTxn);
+      final cursor = writeTxn.cursorOpen();
       try {
         for (var entry in testEntries) {
-          db.cursorPut(
-            cursor,
+          cursor.put(
             LMDBVal.fromUtf8(entry.key),
             LMDBVal.fromUtf8(entry.value),
           );
         }
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // Test range-based pagination
-    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final cursor = db.cursorOpen(readTxn);
+      final cursor = readTxn.cursorOpen();
       try {
         // Helper function to get entries within a date range
         Future<List<LMDBEntry>> getEntriesInRange(
@@ -527,8 +488,7 @@ void main() {
         ) async {
           final results = <LMDBEntry>[];
 
-          var entry = db.cursorGet(
-            cursor,
+          var entry = cursor.getAuto(
             LMDBVal.fromUtf8('entry:$startDate'),
             CursorOp.setRange,
           );
@@ -536,7 +496,7 @@ void main() {
           while (entry != null &&
               entry.key.toUtf8String().compareTo('entry:$endDate') <= 0) {
             results.add(entry);
-            entry = db.cursorGet(cursor, null, CursorOp.next);
+            entry = cursor.getAuto(null, CursorOp.next);
           }
 
           return results;
@@ -578,11 +538,11 @@ void main() {
         expect(marchWeek.first.key.toUtf8String(), equals('entry:2024-03-01'));
         expect(marchWeek.last.key.toUtf8String(), equals('entry:2024-03-07'));
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
-      db.txnCommit(readTxn);
+      readTxn.commit();
     } catch (e) {
-      db.txnAbort(readTxn);
+      readTxn.abort();
       rethrow;
     }
   });
@@ -595,37 +555,35 @@ void main() {
     });
 
     // Write test data
-    await _withTransaction(db, (txn) async {
-      final cursor = db.cursorOpen(txn);
+    _withTransaction(db, (txn) {
+      final cursor = txn.cursorOpen();
       try {
         for (var entry in testEntries) {
-          db.cursorPut(
-            cursor,
+          cursor.put(
             LMDBVal.fromUtf8(entry.key),
             LMDBVal.fromUtf8(entry.value),
           );
         }
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
     });
 
     // Test efficient pagination
-    await _withTransaction(db, (txn) async {
-      final cursor = db.cursorOpen(txn);
+    _withTransaction(db, (txn) {
+      final cursor = txn.cursorOpen();
       try {
         const pageSize = 10;
 
         // Helper function to get a page of results
-        Future<PageResult> getPage(String? startAfterKey) async {
+        PageResult getPage(String? startAfterKey) {
           final results = <LMDBEntry>[];
           String? nextKey;
 
           // Get first entry - either from start or after the given key
           var entry = startAfterKey == null
-              ? db.cursorGet(cursor, null, CursorOp.first)
-              : db.cursorGet(
-                  cursor,
+              ? cursor.getAuto(null, CursorOp.first)
+              : cursor.getAuto(
                   LMDBVal.fromUtf8(startAfterKey),
                   CursorOp.setRange,
                 );
@@ -636,7 +594,7 @@ void main() {
           // Collect entries for current page
           while (entry != null && results.length < pageSize) {
             results.add(entry);
-            entry = db.cursorGet(cursor, null, CursorOp.next);
+            entry = cursor.getAuto(null, CursorOp.next);
           }
 
           // Get the key for the next page
@@ -648,14 +606,14 @@ void main() {
         }
 
         // Test first page
-        final firstPage = await getPage(null);
+        final firstPage = getPage(null);
         expect(firstPage.entries.length, equals(pageSize));
         expect(firstPage.entries.first.key.toUtf8String(), equals('key:000'));
         expect(firstPage.entries.last.key.toUtf8String(), equals('key:009'));
         expect(firstPage.nextPageKey, equals('key:010'));
 
         // Test middle page using next key from first page
-        final middlePage = await getPage(firstPage.nextPageKey);
+        final middlePage = getPage(firstPage.nextPageKey);
         expect(middlePage.entries.length, equals(pageSize));
         expect(middlePage.entries.first.key.toUtf8String(), equals('key:010'));
         expect(middlePage.entries.last.key.toUtf8String(), equals('key:019'));
@@ -666,7 +624,7 @@ void main() {
         String? currentPageKey;
 
         while (true) {
-          final page = await getPage(currentPageKey);
+          final page = getPage(currentPageKey);
           allEntries.addAll(page.entries);
 
           if (page.nextPageKey == null) {
@@ -688,7 +646,7 @@ void main() {
         }
 
         // Test seeking to specific page by key
-        final specificPage = await getPage('key:050');
+        final specificPage = getPage('key:050');
         expect(
           specificPage.entries.first.key.toUtf8String(),
           equals('key:050'),
@@ -696,51 +654,49 @@ void main() {
         expect(specificPage.entries.last.key.toUtf8String(), equals('key:059'));
 
         // Test last page
-        final lastPage = await getPage('key:090');
+        final lastPage = getPage('key:090');
         expect(lastPage.entries.length, equals(10));
         expect(lastPage.entries.first.key.toUtf8String(), equals('key:090'));
         expect(lastPage.entries.last.key.toUtf8String(), equals('key:099'));
         expect(lastPage.nextPageKey, isNull);
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
     }, readOnly: true);
   });
 
   test('Cursor operations with binary data', () async {
     // Write binary data
-    await _withTransaction(db, (txn) async {
-      final cursor = db.cursorOpen(txn);
+    _withTransaction(db, (txn) {
+      final cursor = txn.cursorOpen();
       try {
-        db.cursorPut(
-          cursor,
-          LMDBVal.fromUtf8('123'),
+        cursor.put(
+          LMDBVal.fromBytes([0x12, 0x34, 0x56]),
           LMDBVal.fromBytes([0xFF, 0xFE, 0xFD]),
         );
-        db.cursorPut(
-          cursor,
-          LMDBVal.fromUtf8('456'),
+        cursor.put(
+          LMDBVal.fromBytes([0x45, 0x67, 0x89]),
           LMDBVal.fromBytes([0xAA, 0xBB, 0xCC]),
         );
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
     });
 
     // Read and verify binary data
-    await _withTransaction(db, (txn) async {
-      final cursor = db.cursorOpen(txn);
+    _withTransaction(db, (txn) {
+      final cursor = txn.cursorOpen();
       try {
-        var entry = db.cursorGet(cursor, null, CursorOp.first);
+        var entry = cursor.getAuto(null, CursorOp.first);
 
-        expect(entry?.key.toUtf8String(), equals('123'));
+        expect(entry?.key.asBytes(), equals([0x12, 0x34, 0x56]));
         expect(entry?.data.asBytes(), equals([0xFF, 0xFE, 0xFD]));
 
-        entry = db.cursorGet(cursor, null, CursorOp.next);
-        expect(entry?.key.toUtf8String(), equals('456'));
+        entry = cursor.getAuto(null, CursorOp.next);
+        expect(entry?.key.asBytes(), equals([0x45, 0x67, 0x89]));
         expect(entry?.data.asBytes(), equals([0xAA, 0xBB, 0xCC]));
       } finally {
-        db.cursorClose(cursor);
+        cursor.close();
       }
     }, readOnly: true);
   });

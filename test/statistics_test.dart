@@ -62,20 +62,20 @@ void main() {
     final txn = db.txnStart();
     try {
       // Put some data
-      db.put(txn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
-      db.put(txn, LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
-      db.put(txn, LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
+      txn.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+      txn.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
+      txn.put(LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
 
       // Get stats within same transaction
-      final stats = db.stats(txn);
+      final stats = txn.stats();
 
       expect(stats.entries, equals(3));
       expect(stats.depth, greaterThanOrEqualTo(1));
       expect(stats.leafPages, greaterThan(0));
 
-      db.txnCommit(txn);
+      txn.commit();
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     }
   });
@@ -122,7 +122,7 @@ void main() {
 
     try {
       // Initial check with auto-transaction
-      var stats = largeDb.statsAuto();
+      var stats = largeDb.stats();
       expect(stats.entries, equals(0));
 
       int lastCheckedDepth = 0;
@@ -141,14 +141,14 @@ void main() {
             final valueLength = random.nextInt(900) + 100;
             final value = generateRandomValue(valueLength);
 
-            largeDb.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
+            txn.put(LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
           }
 
-          largeDb.txnCommit(txn);
+          txn.commit();
 
           // Check statistics less frequently using auto-transaction
           if (batchEnd % checkInterval == 0) {
-            stats = largeDb.statsAuto();
+            stats = largeDb.stats();
 
             // Verify database consistency
             expect(stats.entries, equals(batchEnd));
@@ -166,18 +166,18 @@ void main() {
             lastCheckedDepth = stats.depth;
           }
         } catch (e) {
-          largeDb.txnAbort(txn);
+          txn.abort();
           rethrow;
         }
       }
 
       // Final verification using auto-transaction
-      final finalStats = largeDb.statsAuto();
+      final finalStats = largeDb.stats();
       expect(finalStats.entries, equals(totalEntries));
       expect(finalStats.depth, greaterThan(1));
 
       print('\nFinal Database Analysis:');
-      print(largeDb.analyzeUsage());
+      print(finalStats.analyzeUsage());
     } finally {
       largeDb.close();
       final dir = Directory(largeDbPath);

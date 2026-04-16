@@ -62,36 +62,36 @@ void main() {
     final txn = db.txnStart();
     try {
       // Put multiple items
-      db.put(txn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
-      db.put(txn, LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
-      db.put(txn, LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
+      txn.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+      txn.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
+      txn.put(LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
 
       // Verify within same transaction
-      var result1 = db.get(txn, LMDBVal.fromUtf8('key1'));
-      var result2 = db.get(txn, LMDBVal.fromUtf8('key2'));
-      var result3 = db.get(txn, LMDBVal.fromUtf8('key3'));
+      var result1 = txn.get(LMDBVal.fromUtf8('key1'));
+      var result2 = txn.get(LMDBVal.fromUtf8('key2'));
+      var result3 = txn.get(LMDBVal.fromUtf8('key3'));
 
       expect(result1!.toUtf8String(), equals('value1'));
       expect(result2!.toUtf8String(), equals('value2'));
       expect(result3!.toUtf8String(), equals('value3'));
 
       // Delete one item
-      db.delete(txn, LMDBVal.fromUtf8('key2'));
+      txn.delete(LMDBVal.fromUtf8('key2'));
 
       // Verify deletion within transaction
-      result2 = db.get(txn, LMDBVal.fromUtf8('key2'));
+      result2 = txn.get(LMDBVal.fromUtf8('key2'));
       expect(result2, isNull);
 
-      db.txnCommit(txn);
+      txn.commit();
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     }
 
     // Verify after transaction commit
-    final result1 = db.getAuto(LMDBVal.fromUtf8('key1'));
-    final result2 = db.getAuto(LMDBVal.fromUtf8('key2'));
-    final result3 = db.getAuto(LMDBVal.fromUtf8('key3'));
+    final result1 = db.get(LMDBVal.fromUtf8('key1'));
+    final result2 = db.get(LMDBVal.fromUtf8('key2'));
+    final result3 = db.get(LMDBVal.fromUtf8('key3'));
 
     expect(result1!.toUtf8String(), equals('value1'));
     expect(result2, isNull);
@@ -100,31 +100,31 @@ void main() {
 
   test('Transaction rollback', () async {
     // First put some data with auto transaction
-    db.putAuto(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('initial_value'));
+    db.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('initial_value'));
 
     // Start a transaction and modify data
     final txn = db.txnStart();
     try {
-      db.put(txn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('modified_value'));
-      db.put(txn, LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('new_value'));
+      txn.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('modified_value'));
+      txn.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('new_value'));
 
       // Verify changes within transaction
-      var result1 = db.get(txn, LMDBVal.fromUtf8('key1'));
-      var result2 = db.get(txn, LMDBVal.fromUtf8('key2'));
+      var result1 = txn.get(LMDBVal.fromUtf8('key1'));
+      var result2 = txn.get(LMDBVal.fromUtf8('key2'));
 
       expect(result1!.toUtf8String(), equals('modified_value'));
       expect(result2!.toUtf8String(), equals('new_value'));
 
       // Abort transaction instead of committing
-      db.txnAbort(txn);
+      txn.abort();
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     }
 
     // Verify that changes were rolled back
-    final result1 = db.getAuto(LMDBVal.fromUtf8('key1'));
-    final result2 = db.getAuto(LMDBVal.fromUtf8('key2'));
+    final result1 = db.get(LMDBVal.fromUtf8('key1'));
+    final result2 = db.get(LMDBVal.fromUtf8('key2'));
 
     expect(result1!.toUtf8String(), equals('initial_value'));
     expect(result2, isNull);
@@ -140,54 +140,54 @@ void main() {
     // 1. Write some initial data
     final writeTxn = db.txnStart();
     try {
-      db.put(writeTxn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
-      db.txnCommit(writeTxn);
+      writeTxn.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // 2. Sequential read transactions
-    final readTxn1 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn1 = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final result1 = db.get(readTxn1, LMDBVal.fromUtf8('key1'));
+      final result1 = readTxn1.get(LMDBVal.fromUtf8('key1'));
       expect(result1!.toUtf8String(), equals('value1'));
-      db.txnCommit(readTxn1);
+      readTxn1.commit();
     } catch (e) {
-      db.txnAbort(readTxn1);
+      readTxn1.abort();
       rethrow;
     }
 
-    final readTxn2 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn2 = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final result2 = db.get(readTxn2, LMDBVal.fromUtf8('key1'));
+      final result2 = readTxn2.get(LMDBVal.fromUtf8('key1'));
       expect(result2!.toUtf8String(), equals('value1'));
-      db.txnCommit(readTxn2);
+      readTxn2.commit();
     } catch (e) {
-      db.txnAbort(readTxn2);
+      readTxn2.abort();
       rethrow;
     }
 
     // 3. Another write transaction
     final writeTxn2 = db.txnStart();
     try {
-      db.put(writeTxn2, LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
-      db.txnCommit(writeTxn2);
+      writeTxn2.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
+      writeTxn2.commit();
     } catch (e) {
-      db.txnAbort(writeTxn2);
+      writeTxn2.abort();
       rethrow;
     }
 
     // 4. Final read to verify all data
-    final finalReadTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final finalReadTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final result1 = db.get(finalReadTxn, LMDBVal.fromUtf8('key1'));
-      final result2 = db.get(finalReadTxn, LMDBVal.fromUtf8('key2'));
+      final result1 = finalReadTxn.get(LMDBVal.fromUtf8('key1'));
+      final result2 = finalReadTxn.get(LMDBVal.fromUtf8('key2'));
       expect(result1!.toUtf8String(), equals('value1'));
       expect(result2!.toUtf8String(), equals('value2'));
-      db.txnCommit(finalReadTxn);
+      finalReadTxn.commit();
     } catch (e) {
-      db.txnAbort(finalReadTxn);
+      finalReadTxn.abort();
       rethrow;
     }
 
@@ -207,24 +207,24 @@ void main() {
     // 1. Nested read transactions during write
     final writeTxn = db.txnStart();
     try {
-      db.put(writeTxn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+      writeTxn.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
 
       // Start read transaction while write is in progress
-      final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+      final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
       try {
         // Should not see uncommitted data
-        final result = db.get(readTxn, LMDBVal.fromUtf8('key1'));
+        final result = readTxn.get(LMDBVal.fromUtf8('key1'));
         expect(result, isNull);
-        db.txnCommit(readTxn);
+        readTxn.commit();
       } catch (e) {
-        db.txnAbort(readTxn);
+        readTxn.abort();
         rethrow;
       }
 
       // Complete write
-      db.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
@@ -232,35 +232,29 @@ void main() {
     final multiDbTxn = db.txnStart();
     try {
       // Write to default database
-      db.put(
-        multiDbTxn,
+      multiDbTxn.put(
         LMDBVal.fromUtf8('default_key'),
         LMDBVal.fromUtf8('default_value'),
       );
 
       // Write to named database
-      db.put(
-        multiDbTxn,
+      multiDbTxn.put(
         LMDBVal.fromUtf8('named_key'),
         LMDBVal.fromUtf8('named_value'),
         dbName: 'named_db',
       );
 
-      db.txnCommit(multiDbTxn);
+      multiDbTxn.commit();
     } catch (e) {
-      db.txnAbort(multiDbTxn);
+      multiDbTxn.abort();
       rethrow;
     }
 
     // 3. Read from both databases in single transaction
-    final readBothTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readBothTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final defaultResult = db.get(
-        readBothTxn,
-        LMDBVal.fromUtf8('default_key'),
-      );
-      final namedResult = db.get(
-        readBothTxn,
+      final defaultResult = readBothTxn.get(LMDBVal.fromUtf8('default_key'));
+      final namedResult = readBothTxn.get(
         LMDBVal.fromUtf8('named_key'),
         dbName: 'named_db',
       );
@@ -268,46 +262,41 @@ void main() {
       expect(defaultResult!.toUtf8String(), equals('default_value'));
       expect(namedResult!.toUtf8String(), equals('named_value'));
 
-      db.txnCommit(readBothTxn);
+      readBothTxn.commit();
     } catch (e) {
-      db.txnAbort(readBothTxn);
+      readBothTxn.abort();
       rethrow;
     }
 
     // 4. Transaction with multiple operations and conditional commit/abort
     final complexTxn = db.txnStart();
     try {
-      db.put(
-        complexTxn,
-        LMDBVal.fromUtf8('key_a'),
-        LMDBVal.fromUtf8('value_a'),
-      );
+      complexTxn.put(LMDBVal.fromUtf8('key_a'), LMDBVal.fromUtf8('value_a'));
 
-      final existingValue = db.get(complexTxn, LMDBVal.fromUtf8('key1'));
+      final existingValue = complexTxn.get(LMDBVal.fromUtf8('key1'));
       expect(existingValue!.toUtf8String(), equals('value1'));
 
-      db.delete(complexTxn, LMDBVal.fromUtf8('key_a'));
+      complexTxn.delete(LMDBVal.fromUtf8('key_a'));
 
-      final deletedValue = db.get(complexTxn, LMDBVal.fromUtf8('key_a'));
+      final deletedValue = complexTxn.get(LMDBVal.fromUtf8('key_a'));
       expect(deletedValue, isNull);
 
-      db.txnCommit(complexTxn);
+      complexTxn.commit();
     } catch (e) {
-      db.txnAbort(complexTxn);
+      complexTxn.abort();
       rethrow;
     }
 
     // 5. Verify final state with read-only transaction
-    final finalTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final finalTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
       // Check original data
-      final result1 = db.get(finalTxn, LMDBVal.fromUtf8('key1'));
+      final result1 = finalTxn.get(LMDBVal.fromUtf8('key1'));
       expect(result1!.toUtf8String(), equals('value1'));
 
       // Check multi-db data
-      final defaultResult = db.get(finalTxn, LMDBVal.fromUtf8('default_key'));
-      final namedResult = db.get(
-        finalTxn,
+      final defaultResult = finalTxn.get(LMDBVal.fromUtf8('default_key'));
+      final namedResult = finalTxn.get(
         LMDBVal.fromUtf8('named_key'),
         dbName: 'named_db',
       );
@@ -315,12 +304,12 @@ void main() {
       expect(namedResult!.toUtf8String(), equals('named_value'));
 
       // Check deleted data
-      final deletedResult = db.get(finalTxn, LMDBVal.fromUtf8('key_a'));
+      final deletedResult = finalTxn.get(LMDBVal.fromUtf8('key_a'));
       expect(deletedResult, isNull);
 
-      db.txnCommit(finalTxn);
+      finalTxn.commit();
     } catch (e) {
-      db.txnAbort(finalTxn);
+      finalTxn.abort();
       rethrow;
     }
 
@@ -341,20 +330,16 @@ void main() {
     final writeTxn = db.txnStart();
     try {
       for (int i = 0; i < 100; i++) {
-        db.put(
-          writeTxn,
-          LMDBVal.fromUtf8('key$i'),
-          LMDBVal.fromUtf8('value$i'),
-        );
+        writeTxn.put(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
-      db.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // Now perform parallel reads using different instances
-    final readFlags = LMDBFlagSet()..add(MDB_RDONLY);
+    final readFlags = {LMDBEnvFlag.readOnly};
 
     // Start parallel read transactions on different instances
     final results = await Future.wait([
@@ -364,12 +349,12 @@ void main() {
         try {
           final results = List.generate(
             30,
-            (i) => db.get(txn, LMDBVal.fromUtf8('key$i')),
+            (i) => txn.get(LMDBVal.fromUtf8('key$i')),
           );
-          db.txnCommit(txn);
+          txn.commit();
           return results;
         } catch (e) {
-          db.txnAbort(txn);
+          txn.abort();
           rethrow;
         }
       }),
@@ -380,12 +365,12 @@ void main() {
         try {
           final results = List.generate(
             30,
-            (i) => db.get(txn, LMDBVal.fromUtf8('key${i + 30}')),
+            (i) => txn.get(LMDBVal.fromUtf8('key${i + 30}')),
           );
-          db.txnCommit(txn);
+          txn.commit();
           return results;
         } catch (e) {
-          db.txnAbort(txn);
+          txn.abort();
           rethrow;
         }
       }),
@@ -396,12 +381,12 @@ void main() {
         try {
           final results = List.generate(
             40,
-            (i) => db.get(txn, LMDBVal.fromUtf8('key${i + 60}')),
+            (i) => txn.get(LMDBVal.fromUtf8('key${i + 60}')),
           );
-          db.txnCommit(txn);
+          txn.commit();
           return results;
         } catch (e) {
-          db.txnAbort(txn);
+          txn.abort();
           rethrow;
         }
       }),
@@ -432,25 +417,24 @@ void main() {
     // Verify we can still write after parallel reads
     final finalWriteTxn = db.txnStart();
     try {
-      db.put(
-        finalWriteTxn,
+      finalWriteTxn.put(
         LMDBVal.fromUtf8('final_key'),
         LMDBVal.fromUtf8('final_value'),
       );
-      db.txnCommit(finalWriteTxn);
+      finalWriteTxn.commit();
     } catch (e) {
-      db.txnAbort(finalWriteTxn);
+      finalWriteTxn.abort();
       rethrow;
     }
 
     // Verify the write is visible to other instances
     final readTxn = db.txnStart(flags: readFlags);
     try {
-      final result = db.get(readTxn, LMDBVal.fromUtf8('final_key'));
+      final result = readTxn.get(LMDBVal.fromUtf8('final_key'));
       expect(result!.toUtf8String(), equals('final_value'));
-      db.txnCommit(readTxn);
+      readTxn.commit();
     } catch (e) {
-      db.txnAbort(readTxn);
+      readTxn.abort();
       rethrow;
     }
 
@@ -484,20 +468,16 @@ void main() {
     final writeTxn = db1.txnStart();
     try {
       for (int i = 0; i < 100; i++) {
-        db1.put(
-          writeTxn,
-          LMDBVal.fromUtf8('key$i'),
-          LMDBVal.fromUtf8('value$i'),
-        );
+        writeTxn.put(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
-      db1.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db1.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // Now perform parallel reads using different instances
-    final readFlags = LMDBFlagSet()..add(MDB_RDONLY);
+    final readFlags = {LMDBEnvFlag.readOnly};
 
     // Start parallel read transactions on different instances
     final results = await Future.wait([
@@ -507,12 +487,12 @@ void main() {
         try {
           final results = List.generate(
             30,
-            (i) => db1.get(txn, LMDBVal.fromUtf8('key$i')),
+            (i) => txn.get(LMDBVal.fromUtf8('key$i')),
           );
-          db1.txnCommit(txn);
+          txn.commit();
           return results;
         } catch (e) {
-          db1.txnAbort(txn);
+          txn.abort();
           rethrow;
         }
       }),
@@ -523,12 +503,12 @@ void main() {
         try {
           final results = List.generate(
             30,
-            (i) => db2.get(txn, LMDBVal.fromUtf8('key${i + 30}')),
+            (i) => txn.get(LMDBVal.fromUtf8('key${i + 30}')),
           );
-          db2.txnCommit(txn);
+          txn.commit();
           return results;
         } catch (e) {
-          db2.txnAbort(txn);
+          txn.abort();
           rethrow;
         }
       }),
@@ -539,12 +519,12 @@ void main() {
         try {
           final results = List.generate(
             40,
-            (i) => db3.get(txn, LMDBVal.fromUtf8('key${i + 60}')),
+            (i) => txn.get(LMDBVal.fromUtf8('key${i + 60}')),
           );
-          db3.txnCommit(txn);
+          txn.commit();
           return results;
         } catch (e) {
-          db3.txnAbort(txn);
+          txn.abort();
           rethrow;
         }
       }),
@@ -575,25 +555,24 @@ void main() {
     // Verify we can still write after parallel reads
     final finalWriteTxn = db1.txnStart();
     try {
-      db1.put(
-        finalWriteTxn,
+      finalWriteTxn.put(
         LMDBVal.fromUtf8('final_key'),
         LMDBVal.fromUtf8('final_value'),
       );
-      db1.txnCommit(finalWriteTxn);
+      finalWriteTxn.commit();
 
       // Verify the write is visible to other instances
       final readTxn = db2.txnStart(flags: readFlags);
       try {
-        final result = db2.get(readTxn, LMDBVal.fromUtf8('final_key'));
+        final result = readTxn.get(LMDBVal.fromUtf8('final_key'));
         expect(result!.toUtf8String(), equals('final_value'));
-        db2.txnCommit(readTxn);
+        readTxn.commit();
       } catch (e) {
-        db2.txnAbort(readTxn);
+        readTxn.abort();
         rethrow;
       }
     } catch (e) {
-      db1.txnAbort(finalWriteTxn);
+      finalWriteTxn.abort();
       rethrow;
     }
 
@@ -629,17 +608,16 @@ void main() {
         for (int i = 0; i < 10; i++) {
           final writeTxn = db1.txnStart();
           try {
-            db1.put(
-              writeTxn,
+            writeTxn.put(
               LMDBVal.fromUtf8('key$i'),
               LMDBVal.fromUtf8('value$i'),
             );
-            db1.txnCommit(writeTxn);
+            writeTxn.commit();
 
             // Give other instances a chance to read
             await Future.delayed(Duration(milliseconds: 10));
           } catch (e) {
-            db1.txnAbort(writeTxn);
+            writeTxn.abort();
             rethrow;
           }
         }
@@ -649,29 +627,28 @@ void main() {
       Isolate.run(() async {
         for (int i = 0; i < 10; i++) {
           // Read data written by Instance 1
-          final readTxn = db2.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+          final readTxn = db2.txnStart(flags: {LMDBEnvFlag.readOnly});
           try {
-            final result = db2.get(readTxn, LMDBVal.fromUtf8('key$i'));
+            final result = readTxn.get(LMDBVal.fromUtf8('key$i'));
             if (result != null && result.toUtf8String() != 'value$i') {
               throw Exception('Mismatch in value for key$i');
             }
-            db2.txnCommit(readTxn);
+            readTxn.commit();
           } catch (e) {
-            db2.txnAbort(readTxn);
+            readTxn.abort();
             rethrow;
           }
 
           // Write own data
           final writeTxn = db2.txnStart();
           try {
-            db2.put(
-              writeTxn,
+            writeTxn.put(
               LMDBVal.fromUtf8('db2_key$i'),
               LMDBVal.fromUtf8('db2_value$i'),
             );
-            db2.txnCommit(writeTxn);
+            writeTxn.commit();
           } catch (e) {
-            db2.txnAbort(writeTxn);
+            writeTxn.abort();
             rethrow;
           }
         }
@@ -680,23 +657,23 @@ void main() {
       // Instance 3: Read data from both Instance 1 and 2
       Isolate.run(() async {
         for (int i = 0; i < 10; i++) {
-          final readTxn = db3.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+          final readTxn = db3.txnStart(flags: {LMDBEnvFlag.readOnly});
           try {
             // Try to read data from Instance 1
-            final result1 = db3.get(readTxn, LMDBVal.fromUtf8('key$i'));
+            final result1 = readTxn.get(LMDBVal.fromUtf8('key$i'));
             if (result1 != null && result1.toUtf8String() != 'value$i') {
               throw Exception('Mismatch in value for key$i');
             }
 
             // Try to read data from Instance 2
-            final result2 = db3.get(readTxn, LMDBVal.fromUtf8('db2_key$i'));
+            final result2 = readTxn.get(LMDBVal.fromUtf8('db2_key$i'));
             if (result2 != null && result2.toUtf8String() != 'db2_value$i') {
               throw Exception('Mismatch in value for db2_key$i');
             }
 
-            db3.txnCommit(readTxn);
+            readTxn.commit();
           } catch (e) {
-            db3.txnAbort(readTxn);
+            readTxn.abort();
             rethrow;
           }
 
@@ -707,23 +684,23 @@ void main() {
     ]);
 
     // Final verification of all data
-    final verifyTxn = db1.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final verifyTxn = db1.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
       // Verify data written by Instance 1
       for (int i = 0; i < 10; i++) {
-        final result1 = db1.get(verifyTxn, LMDBVal.fromUtf8('key$i'));
+        final result1 = verifyTxn.get(LMDBVal.fromUtf8('key$i'));
         expect(result1!.toUtf8String(), equals('value$i'));
       }
 
       // Verify data written by Instance 2
       for (int i = 0; i < 10; i++) {
-        final result2 = db1.get(verifyTxn, LMDBVal.fromUtf8('db2_key$i'));
+        final result2 = verifyTxn.get(LMDBVal.fromUtf8('db2_key$i'));
         expect(result2!.toUtf8String(), equals('db2_value$i'));
       }
 
-      db1.txnCommit(verifyTxn);
+      verifyTxn.commit();
     } catch (e) {
-      db1.txnAbort(verifyTxn);
+      verifyTxn.abort();
       rethrow;
     }
 

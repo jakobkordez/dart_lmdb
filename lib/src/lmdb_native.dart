@@ -12,7 +12,7 @@ class LMDBNative {
     lib = LMDBBindings(_openLibrary());
   }
 
-  // Singleton-acces via lazy initialization
+  // Singleton-access via lazy initialization
   static LMDBNative get instance {
     return _instance ??= LMDBNative._();
   }

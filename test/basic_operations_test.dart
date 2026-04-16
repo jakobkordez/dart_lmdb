@@ -57,8 +57,8 @@ void main() {
     }
   });
 
-  test(' Version', () {
-    final version = db.getVersion();
+  test('Version', () {
+    final version = LMDB.getVersion();
     expect(version, contains('LMDB'));
   });
 
@@ -66,8 +66,8 @@ void main() {
     final key = 'test_key';
     final value = 'test_value';
 
-    db.putAuto(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8(value));
-    final result = db.getAuto(LMDBVal.fromUtf8(key));
+    db.put(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8(value));
+    final result = db.get(LMDBVal.fromUtf8(key));
 
     expect(result, isNotNull);
     expect(result!.toUtf8String(), equals(value));
@@ -77,15 +77,15 @@ void main() {
     final key = 'test_key';
     final value = 'test_value';
 
-    db.putAuto(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8(value));
-    db.deleteAuto(LMDBVal.fromUtf8(key));
-    final result = db.getAuto(LMDBVal.fromUtf8(key));
+    db.put(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8(value));
+    db.delete(LMDBVal.fromUtf8(key));
+    final result = db.get(LMDBVal.fromUtf8(key));
 
     expect(result, isNull);
   });
 
   test('Non-existent key returns null with auto transaction', () async {
-    final result = db.getAuto(LMDBVal.fromUtf8('non_existent_key'));
+    final result = db.get(LMDBVal.fromUtf8('non_existent_key'));
     expect(result, isNull);
   });
 
@@ -105,37 +105,36 @@ void main() {
     final writeTxn = db.txnStart();
     try {
       for (var entry in testData.entries) {
-        db.put(
-          writeTxn,
+        writeTxn.put(
           LMDBVal.fromUtf8(entry.key),
           LMDBVal.fromUtf8(entry.value),
         );
       }
-      db.txnCommit(writeTxn);
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // Read with explicit transaction
-    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
       for (var entry in testData.entries) {
-        final result = db.get(readTxn, LMDBVal.fromUtf8(entry.key));
+        final result = readTxn.get(LMDBVal.fromUtf8(entry.key));
         expect(result!.toUtf8String(), equals(entry.value));
       }
-      db.txnCommit(readTxn);
+      readTxn.commit();
     } catch (e) {
-      db.txnAbort(readTxn);
+      readTxn.abort();
       rethrow;
     }
 
     // Test with auto transactions
-    db.putAuto(
+    db.put(
       LMDBVal.fromUtf8('auto_key'),
       LMDBVal.fromUtf8('Auto Transaction Test'),
     );
-    final autoResult = db.getAuto(LMDBVal.fromUtf8('auto_key'));
+    final autoResult = db.get(LMDBVal.fromUtf8('auto_key'));
     expect(autoResult!.toUtf8String(), equals('Auto Transaction Test'));
 
     db.close();

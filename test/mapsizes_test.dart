@@ -46,17 +46,17 @@ void main() {
       for (var i = 0; i < 50000; i++) {
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
+        txn.put(LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
-      db.txnCommit(txn);
+      txn.commit();
 
-      final stats = db.statsAuto();
+      final stats = db.stats();
       final actualSize =
           stats.pageSize *
           (stats.branchPages + stats.leafPages + stats.overflowPages);
       print('Actual DB size: ${actualSize / (1024 * 1024)} MB');
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     } finally {
       db.close();
@@ -67,17 +67,17 @@ void main() {
     db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: smallMapSize),
-      flags: LMDBFlagSet()..add(MDB_RDONLY),
+      flags: {LMDBEnvFlag.readOnly},
     );
 
-    final readTxn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final readTxn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
-      final data = db.get(readTxn, LMDBVal.fromUtf8('key_1'));
+      final data = readTxn.get(LMDBVal.fromUtf8('key_1'));
       expect(data, isNotNull);
       expect(data!.asBytes().length, equals(1024));
-      db.txnCommit(readTxn);
+      readTxn.commit();
     } catch (e) {
-      db.txnAbort(readTxn);
+      readTxn.abort();
       rethrow;
     } finally {
       db.close();
@@ -88,13 +88,13 @@ void main() {
 
     txn = db.txnStart();
     try {
-      db.put(txn, LMDBVal.fromUtf8('new_key'), LMDBVal.fromUtf8('test_value'));
-      db.txnCommit(txn);
+      txn.put(LMDBVal.fromUtf8('new_key'), LMDBVal.fromUtf8('test_value'));
+      txn.commit();
       fail('Should not be able to write with smaller mapsize');
     } catch (e) {
       expect(e, isA<LMDBException>());
       expect((e as LMDBException).errorCode, equals(MDB_MAP_FULL));
-      db.txnAbort(txn);
+      txn.abort();
     } finally {
       db.close();
     }
@@ -113,14 +113,14 @@ void main() {
         // write ~2MB
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
+        txn.put(LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
-      db.txnCommit(txn);
+      txn.commit();
       fail('Should not be able to write beyond mapsize');
     } catch (e) {
       expect(e, isA<LMDBException>());
       expect((e as LMDBException).errorCode, equals(MDB_MAP_FULL));
-      db.txnAbort(txn);
+      txn.abort();
       print('Got expected MDB_MAP_FULL error when exceeding mapsize');
     } finally {
       db.close();
@@ -141,15 +141,15 @@ void main() {
         // ~9MB data
         final key = 'key_$i';
         final value = List.filled(1024 * 1024, 42); // 1KB per entry
-        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
+        txn.put(LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     }
-    db.txnCommit(txn);
+    txn.commit();
 
-    var stats = db.statsAuto();
+    var stats = db.stats();
     var actualSize =
         stats.pageSize *
         (stats.branchPages + stats.leafPages + stats.overflowPages);
@@ -168,11 +168,11 @@ void main() {
         // more ~6MB
         final key = 'key_$i';
         final value = List.filled(1024, 42);
-        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
+        txn.put(LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
-      db.txnCommit(txn);
+      txn.commit();
 
-      stats = db.statsAuto();
+      stats = db.stats();
       actualSize =
           stats.pageSize *
           (stats.branchPages + stats.leafPages + stats.overflowPages);
@@ -181,7 +181,7 @@ void main() {
         'Successful growth from ${initialMapSize / (1024 * 1024)}MB to ${largerMapSize / (1024 * 1024)}MB mapsize',
       );
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       fail('Should be able to write with larger mapsize: $e');
     }
 
@@ -200,10 +200,10 @@ void main() {
       for (var i = 0; i < 55000; i++) {
         final key = 'key_$i';
         final value = List.filled(1024, 42); // 1KB per entry
-        db.put(txn, LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
+        txn.put(LMDBVal.fromUtf8(key), LMDBVal.fromBytes(value));
       }
-      db.txnCommit(txn);
-      final stats = db.statsAuto();
+      txn.commit();
+      final stats = db.stats();
       final actualSize =
           stats.pageSize *
           (stats.branchPages + stats.leafPages + stats.overflowPages);
@@ -217,20 +217,20 @@ void main() {
     db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: smallMapSize),
-      flags: LMDBFlagSet()..add(MDB_RDONLY),
+      flags: {LMDBEnvFlag.readOnly},
     );
 
     final stopwatch1 = Stopwatch()..start();
-    txn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    txn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
       // Random access to data
       for (var i = 0; i < 1000; i++) {
         final randomKey = 'key_${Random().nextInt(50000)}';
-        final data = db.get(txn, LMDBVal.fromUtf8(randomKey));
+        final data = txn.get(LMDBVal.fromUtf8(randomKey));
         expect(data, isNotNull);
       }
     } finally {
-      db.txnCommit(txn);
+      txn.commit();
       db.close();
     }
     final smallMapSizeTime = stopwatch1.elapsed;
@@ -240,20 +240,20 @@ void main() {
     db.init(
       testDir.path,
       config: LMDBInitConfig(mapSize: largeMapSize),
-      flags: LMDBFlagSet()..add(MDB_RDONLY),
+      flags: {LMDBEnvFlag.readOnly},
     );
 
     final stopwatch2 = Stopwatch()..start();
-    txn = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    txn = db.txnStart(flags: {LMDBEnvFlag.readOnly});
     try {
       // Same random access pattern
       for (var i = 0; i < 1000; i++) {
         final randomKey = 'key_${Random().nextInt(50000)}';
-        final data = db.get(txn, LMDBVal.fromUtf8(randomKey));
+        final data = txn.get(LMDBVal.fromUtf8(randomKey));
         expect(data, isNotNull);
       }
     } finally {
-      db.txnCommit(txn);
+      txn.commit();
       db.close();
     }
     final largeMapSizeTime = stopwatch2.elapsed;

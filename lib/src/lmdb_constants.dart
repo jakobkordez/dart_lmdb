@@ -14,13 +14,12 @@ import 'generated_bindings.dart' as bindings;
 ///
 /// Example:
 /// ```dart
-///     db.init(path,
-///         flags: LMDBFlagSet()..add(MDB_RDONLY));
-/// ````
+/// db.init(path, flags: {LMDBEnvFlag.readOnly});
+/// ```
 ///
 /// Related flags:
-/// - Often used with [MDB_NOLOCK] for better read performance
-/// - Compatible with [MDB_NOTLS] for multi-threaded access
+/// - Often used with [LMDBEnvFlag.noLock] for better read performance
+/// - Compatible with [LMDBEnvFlag.noTls] for multi-threaded access
 const MDB_RDONLY = bindings.MDB_RDONLY;
 
 /// Opens a database file directly instead of using a directory.
@@ -37,11 +36,10 @@ const MDB_RDONLY = bindings.MDB_RDONLY;
 ///
 /// Example:
 /// ```dart
-///     db.init("mydb.lmdb",
-///         flags: LMDBFlagSet()..add(MDB_NOSUBDIR));
+/// db.init('mydb.lmdb', flags: {LMDBEnvFlag.noSubdir});
 /// ```
 /// Considerations:
-/// - use in combination with [MDB_RDONLY] and [MDB_NOLOCK] for read-only access
+/// - use in combination with [LMDBEnvFlag.readOnly] and [LMDBEnvFlag.noLock] for read-only access
 /// - Less flexible than directory-based setup
 /// - Must be specified during initial creation
 /// - All processes must use same flag
@@ -61,14 +59,13 @@ const MDB_NOSUBDIR = bindings.MDB_NOSUBDIR;
 ///
 /// Example:
 /// ```dart
-///     db.init(path,
-///         flags: LMDBFlagSet()..add(MDB_NOSYNC));
-/// ````
+/// db.init(path, flags: {LMDBEnvFlag.noSync});
+/// ```
 ///
 /// Warning:
 /// - Don't use when data integrity is critical
 /// - System crashes can corrupt database
-/// - Consider [MDB_NOMETASYNC] for safer alternative
+/// - Consider [LMDBEnvFlag.noMetaSync] for safer alternative
 const MDB_NOSYNC = bindings.MDB_NOSYNC;
 
 /// Don't sync meta pages when committing transaction.
@@ -80,18 +77,17 @@ const MDB_NOSYNC = bindings.MDB_NOSYNC;
 ///
 /// Common usage scenarios:
 /// - Production systems needing balance of safety/speed
-/// - When full [MDB_NOSYNC] is too risky
+/// - When full [LMDBEnvFlag.noSync] is too risky
 /// - High-performance requirements with some safety
 ///
 /// Example:
 /// ```dart
-///     db.init(path,
-///         flags: LMDBFlagSet()..add(MDB_NOMETASYNC));
-/// ````
+/// db.init(path, flags: {LMDBEnvFlag.noMetaSync});
+/// ```
 ///
 /// Comparison:
-/// - Safer than [MDB_NOSYNC]
-/// - Slower than [MDB_NOSYNC]
+/// - Safer than [LMDBEnvFlag.noSync]
+/// - Slower than [LMDBEnvFlag.noSync]
 /// - Faster than default sync behavior
 const MDB_NOMETASYNC = bindings.MDB_NOMETASYNC;
 
@@ -109,17 +105,16 @@ const MDB_NOMETASYNC = bindings.MDB_NOMETASYNC;
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-///     flags: LMDBFlagSet()..add(MDB_WRITEMAP));
+/// db.init(path, flags: {LMDBEnvFlag.writeMap});
 /// ```
 ///
 /// Warning:
 /// - Experimental on Windows
 /// - Disabled in Windows test suite
-/// - Often combined with [MDB_MAPASYNC]
+/// - Often combined with [LMDBEnvFlag.mapAsync]
 const MDB_WRITEMAP = bindings.MDB_WRITEMAP;
 
-/// Enables asynchronous flushes to disk when using [MDB_WRITEMAP].
+/// Enables asynchronous flushes to disk when using [LMDBEnvFlag.writeMap].
 ///
 /// When used:
 /// - Maximum write performance
@@ -133,24 +128,23 @@ const MDB_WRITEMAP = bindings.MDB_WRITEMAP;
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-/// flags: LMDBFlagSet()
-/// ..add(MDB_WRITEMAP)
-/// ..add(MDB_MAPASYNC));
-/// ````
+/// db.init(path, flags: {
+///   LMDBEnvFlag.writeMap,
+///   LMDBEnvFlag.mapAsync,
+/// });
+/// ```
 ///
 /// Warning:
 /// - System crashes can corrupt database
-/// - Must be used with [MDB_WRITEMAP]
+/// - Must be used with [LMDBEnvFlag.writeMap]
 /// - Not suitable for critical data
 const MDB_MAPASYNC = bindings.MDB_MAPASYNC;
 
-/// Creates the named database if it doesn't exist.
+/// Creates the named database if it doesn't exist (`mdb_dbi_open`).
 ///
 /// When used:
-/// - Automatically creates missing databases
-/// - Fails if database exists
-/// - Not allowed in read-only mode
+/// - Creates the sub-database if it does not already exist
+/// - Pass to [LMDBTransaction.getDatabase] `flags` (or `dbFlags` on helpers), not [LMDB.init]
 ///
 /// Common usage scenarios:
 /// - Initial database setup
@@ -159,14 +153,20 @@ const MDB_MAPASYNC = bindings.MDB_MAPASYNC;
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-///     flags: LMDBFlagSet()..add(MDB_CREATE));
+/// final txn = db.txnStart();
+/// try {
+///   txn.getDatabase(name: 'users', flags: {LMDBDbiFlag.create});
+///   txn.commit();
+/// } catch (e) {
+///   txn.abort();
+///   rethrow;
+/// }
 /// ```
 ///
 /// Restrictions:
-/// - Incompatible with [MDB_RDONLY]
+/// - Incompatible with opening the environment read-only ([LMDBEnvFlag.readOnly])
 /// - Requires write permissions
-/// - Only for new databases
+/// - Only when creating or opening a DBI
 const MDB_CREATE = bindings.MDB_CREATE;
 
 /// Disables thread-local storage.
@@ -183,8 +183,7 @@ const MDB_CREATE = bindings.MDB_CREATE;
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-/// flags: LMDBFlagSet()..add(MDB_NOTLS));
+/// db.init(path, flags: {LMDBEnvFlag.noTls});
 /// ```
 /// Considerations:
 /// - May affect thread safety
@@ -192,12 +191,12 @@ const MDB_CREATE = bindings.MDB_CREATE;
 /// - Consider when many threads access same environment
 const MDB_NOTLS = bindings.MDB_NOTLS;
 
-// Disables locking for read-only access.
+/// Disables locking for read-only access.
 ///
 /// When used:
 /// - Improves read-only performance
 /// - Removes file locking overhead
-/// - Must be used with [MDB_RDONLY]
+/// - Must be used with [LMDBEnvFlag.readOnly]
 ///
 /// Common usage scenarios:
 /// - Single-process read-only access
@@ -206,15 +205,15 @@ const MDB_NOTLS = bindings.MDB_NOTLS;
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-///     flags: LMDBFlagSet()
-///       ..add(MDB_RDONLY)
-///       ..add(MDB_NOLOCK));
+/// db.init(path, flags: {
+///   LMDBEnvFlag.readOnly,
+///   LMDBEnvFlag.noLock,
+/// });
 /// ```
 /// Warning:
 /// - Requires careful multi-process coordination
 /// - Can cause issues if write access occurs
-/// - Only safe with [MDB_RDONLY]
+/// - Only safe with [LMDBEnvFlag.readOnly]
 const MDB_NOLOCK = bindings.MDB_NOLOCK;
 
 /// Skips initialization of malloc'd memory before writing.
@@ -231,9 +230,8 @@ const MDB_NOLOCK = bindings.MDB_NOLOCK;
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-///     flags: LMDBFlagSet()..add(MDB_NOMEMINIT));`
-/// ````
+/// db.init(path, flags: {LMDBEnvFlag.noMemInit});
+/// ```
 ///
 /// Warning:
 /// - Can expose previous memory contents
@@ -255,9 +253,8 @@ const MDB_NOMEMINIT = bindings.MDB_NOMEMINIT;
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-///     flags: LMDBFlagSet()..add(MDB_NORDAHEAD));`
-/// ````
+/// db.init(path, flags: {LMDBEnvFlag.noReadAhead});
+/// ```
 ///
 /// Benefits:
 /// - Better random read performance
@@ -265,28 +262,22 @@ const MDB_NOMEMINIT = bindings.MDB_NOMEMINIT;
 /// - Optimized for SSDs
 const MDB_NORDAHEAD = bindings.MDB_NORDAHEAD;
 
-/// Use fixed-size memory map.
+/// Map the environment at a fixed virtual address (experimental).
 ///
 /// When used:
-/// - All data items must be same size
-/// - Memory map size is fixed
-/// - Limited flexibility
+/// - LMDB picks the mapping address; same address must be used on every open
+/// - Specialized, platform-dependent behavior; see upstream LMDB docs
 ///
 /// Common usage scenarios:
-/// - Fixed-record databases
-/// - Specialized applications
-/// - Known data size patterns
+/// - Rare; only when you rely on fixed pointer addresses across runs
 ///
 /// Example:
 /// ```dart
-/// db.init(path,
-///     flags: LMDBFlagSet()..add(MDB_FIXEDMAP));`
-/// ````
+/// db.init(path, flags: {LMDBEnvFlag.fixedMap});
+/// ```
 ///
 /// Limitations:
-/// - All items must be same size
-/// - Less flexible than dynamic mapping
-/// - Specialized use cases only
+/// - Experimental; not typical for general use
 const MDB_FIXEDMAP = bindings.MDB_FIXEDMAP;
 
 /// Allows read-only access if write access is unavailable.
@@ -303,7 +294,7 @@ const MDB_FIXEDMAP = bindings.MDB_FIXEDMAP;
 ///
 /// Example:
 /// ```dart
-/// db.init(path, flags: LMDBFlagSet()..add(MDB_PREVSNAPSHOT));
+/// db.init(path, flags: {LMDBEnvFlag.prevSnapshot});
 /// ```
 ///
 /// Benefits:
@@ -329,16 +320,23 @@ const MDB_PREVSNAPSHOT = bindings.MDB_PREVSNAPSHOT;
 /// Normal string comparison:
 /// "abc1" < "abc2" < "abd1"
 ///
-/// With [MDB_REVERSEKEY]:
+/// With [LMDBDbiFlag.reverseKey]:
 /// Internally stored and compared as:
 /// "1cba" < "1dba" < "2cba"
 ///
 /// Usage example:
 /// ```dart
-/// db.init(path, flags: LMDBFlagSet()..add(MDB_REVERSEKEY));
-/// db.putUtf8(txn, "abc1", "value1");
-/// db.putUtf8(txn, "abc2", "value2");
-/// db.putUtf8(txn, "abd1", "value2");
+/// final txn = db.txnStart();
+/// try {
+///   txn.getDatabase(flags: {LMDBDbiFlag.reverseKey, LMDBDbiFlag.create});
+///   txn.put(LMDBVal.fromUtf8('abc1'), LMDBVal.fromUtf8('value1'));
+///   txn.put(LMDBVal.fromUtf8('abc2'), LMDBVal.fromUtf8('value2'));
+///   txn.put(LMDBVal.fromUtf8('abd1'), LMDBVal.fromUtf8('value2'));
+///   txn.commit();
+/// } catch (e) {
+///   txn.abort();
+///   rethrow;
+/// }
 /// ```
 ///
 /// Performance:
@@ -361,16 +359,20 @@ const MDB_REVERSEKEY = bindings.MDB_REVERSEKEY;
 ///
 /// Example:
 /// ```dart
-/// db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT));
+/// final txn = db.txnStart();
+/// try {
+///   txn.getDatabase(flags: {LMDBDbiFlag.dupSort, LMDBDbiFlag.create});
+///   txn.commit();
+/// } catch (e) {
+///   txn.abort();
+///   rethrow;
+/// }
 /// ```
 ///
 /// Features:
 /// - Automatic value sorting
-/// - Compatible with [MDB_DUPFIXED]
-/// - Enables cursor operations
-///
-/// Note:
-/// - **Not yet supported as cursor operation are not yet implemented**
+/// - Compatible with [LMDBDbiFlag.dupFixed]
+/// - Use [LMDBCursor] for iteration; [LMDBCursor.count] for duplicate counts
 const MDB_DUPSORT = bindings.MDB_DUPSORT;
 
 /// Specifies that keys are binary integers in native byte order.
@@ -387,7 +389,14 @@ const MDB_DUPSORT = bindings.MDB_DUPSORT;
 ///
 /// Example:
 /// ```dart
-/// db.init(path, flags: LMDBFlagSet()..add(MDB_INTEGERKEY));
+/// final txn = db.txnStart();
+/// try {
+///   txn.getDatabase(flags: {LMDBDbiFlag.integerKey, LMDBDbiFlag.create});
+///   txn.commit();
+/// } catch (e) {
+///   txn.abort();
+///   rethrow;
+/// }
 /// ```
 ///
 /// Requirements:
@@ -400,7 +409,7 @@ const MDB_INTEGERKEY = bindings.MDB_INTEGERKEY;
 ///
 /// When used:
 /// - All duplicate values must be same size
-/// - Must be used with [MDB_DUPSORT]
+/// - Must be used with [LMDBDbiFlag.dupSort]
 /// - Enables optimized storage/retrieval
 ///
 /// Common usage scenarios:
@@ -410,19 +419,30 @@ const MDB_INTEGERKEY = bindings.MDB_INTEGERKEY;
 ///
 /// Example:
 /// ```dart
-/// db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT)..add(MDB_DUPFIXED));
+/// final txn = db.txnStart();
+/// try {
+///   txn.getDatabase(flags: {
+///     LMDBDbiFlag.dupSort,
+///     LMDBDbiFlag.dupFixed,
+///     LMDBDbiFlag.create,
+///   });
+///   txn.commit();
+/// } catch (e) {
+///   txn.abort();
+///   rethrow;
+/// }
 /// ```
 ///
 /// Requirements:
 /// - All duplicate values must be same size
-/// - Must be combined with [MDB_DUPSORT]
-/// - Consider with [MDB_INTEGERDUP]
+/// - Must be combined with [LMDBDbiFlag.dupSort]
+/// - Consider with [LMDBDbiFlag.integerDup]
 const MDB_DUPFIXED = bindings.MDB_DUPFIXED;
 
 /// Enables reverse string comparison for duplicate data items.
 ///
 /// When used:
-/// - Must be used with [MDB_DUPSORT]
+/// - Must be used with [LMDBDbiFlag.dupSort]
 /// - Reverses duplicate value comparison
 /// - Affects duplicate sorting order
 ///
@@ -433,20 +453,30 @@ const MDB_DUPFIXED = bindings.MDB_DUPFIXED;
 ///
 /// Example:
 /// ```dart
-/// db.init(path, flags: LMDBFlagSet()..add(MDB_DUPSORT)..add(MDB_REVERSEDUP));
+/// final txn = db.txnStart();
+/// try {
+///   txn.getDatabase(flags: {
+///     LMDBDbiFlag.dupSort,
+///     LMDBDbiFlag.reverseDup,
+///     LMDBDbiFlag.create,
+///   });
+///   txn.commit();
+/// } catch (e) {
+///   txn.abort();
+///   rethrow;
+/// }
 /// ```
 ///
 /// Note:
 /// - Only affects duplicate data comparison
-/// - Must be used with [MDB_DUPSORT]
+/// - Must be used with [LMDBDbiFlag.dupSort]
 /// - Doesn't affect key ordering
-/// - **Not yet supported as cursor operation are not yet implemented**
 const MDB_REVERSEDUP = bindings.MDB_REVERSEDUP;
 
-/// MDB_INTEGERDUP: Used only with [MDB_DUPFIXED] databases.
+/// Used only with [LMDBDbiFlag.dupFixed] databases.
 /// Indicates that duplicate data items are binary integers.
 /// This flag enables efficient storage and comparison of integer values similar
-/// to [MDB_INTEGERKEY] for keys.
+/// to [LMDBDbiFlag.integerKey] for keys.
 const MDB_INTEGERDUP = bindings.MDB_INTEGERDUP;
 
 /// Flag for put operations that prevents overwriting existing keys.
@@ -463,9 +493,12 @@ const MDB_INTEGERDUP = bindings.MDB_INTEGERDUP;
 ///
 /// Example:
 /// ```dart
-///     // Will fail if 'my_key' already exists
-///     db.put(txn, 'my_key', 'value',
-///                 flags: LMDBFlagSet()..add(MDB_NOOVERWRITE));
+/// // Will fail if 'my_key' already exists
+/// db.put(
+///   LMDBVal.fromUtf8('my_key'),
+///   LMDBVal.fromUtf8('value'),
+///   flags: {LMDBWriteFlag.noOverwrite},
+/// );
 /// ```
 /// Related errors:
 /// - Returns [MDB_KEYEXIST] when key already exists
@@ -517,7 +550,7 @@ const MDB_MAP_FULL = bindings.MDB_MAP_FULL;
 
 /// MDB_KEYEXIST: Key/data pair already exists.
 /// Occurs during put operations when the key already exists
-/// and [MDB_NOOVERWRITE] was specified.
+/// and [LMDBWriteFlag.noOverwrite] was specified.
 const MDB_KEYEXIST = bindings.MDB_KEYEXIST;
 
 /// MDB_NOTFOUND: Key/data pair not found (EOF).

@@ -38,7 +38,7 @@ void main() {
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, mode: "0o666"),
     );
-    writeDb.putAuto(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
+    writeDb.put(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
     writeDb.close();
 
     // Now open in read-only mode
@@ -56,13 +56,12 @@ void main() {
     );
 
     // Should be able to read
-    final result = readDb.getAuto(LMDBVal.fromUtf8('key'));
+    final result = readDb.get(LMDBVal.fromUtf8('key'));
     expect(result!.toUtf8String(), equals('value'));
 
     // Write operations should fail
     expect(
-      () =>
-          readDb.putAuto(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2')),
+      () => readDb.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2')),
       throwsA(isA<LMDBException>()),
     );
 
@@ -83,11 +82,11 @@ void main() {
     final txn = db.txnStart();
     try {
       for (int i = 0; i < 1000; i++) {
-        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
+        txn.put(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
-      db.txnCommit(txn);
+      txn.commit();
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     }
 
@@ -96,7 +95,7 @@ void main() {
 
     // Verify data
     for (int i = 0; i < 1000; i++) {
-      final result = db.getAuto(LMDBVal.fromUtf8('key$i'));
+      final result = db.get(LMDBVal.fromUtf8('key$i'));
       expect(result!.toUtf8String(), equals('value$i'));
     }
 
@@ -108,12 +107,11 @@ void main() {
     final lockFile = File(path.join(testDir.path, 'data.mdb-lock'));
 
     final db = LMDB();
-    final noSubdirFlags = LMDBFlagSet()..add(MDB_NOSUBDIR);
 
-    db.init(dbFile.path, flags: noSubdirFlags);
+    db.init(dbFile.path, flags: {LMDBEnvFlag.noSubdir});
 
-    db.putAuto(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
-    final result = db.getAuto(LMDBVal.fromUtf8('key'));
+    db.put(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
+    final result = db.get(LMDBVal.fromUtf8('key'));
 
     expect(result!.toUtf8String(), equals('value'));
     expect(dbFile.existsSync(), isTrue);
@@ -127,38 +125,31 @@ void main() {
 
     // Create with write access
     final writeDb = LMDB();
-    final writeFlags = LMDBFlagSet()
-      ..add(MDB_NOSUBDIR)
-      ..add(MDB_NOSYNC); // Combine multiple flags
-
+    final writeFlags = {LMDBEnvFlag.noSubdir, LMDBEnvFlag.noSync};
     writeDb.init(
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, maxDbs: 1),
       flags: writeFlags,
     );
 
-    writeDb.putAuto(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
+    writeDb.put(LMDBVal.fromUtf8('key'), LMDBVal.fromUtf8('value'));
     writeDb.close();
 
     // Open same file read-only
     final readDb = LMDB();
-    final readFlags = LMDBFlagSet()
-      ..add(MDB_NOSUBDIR)
-      ..add(MDB_RDONLY);
-
+    final readFlags = {LMDBEnvFlag.noSubdir, LMDBEnvFlag.readOnly};
     readDb.init(
       dbPath,
       config: LMDBInitConfig(mapSize: LMDBConfig.minMapSize, maxDbs: 1),
       flags: readFlags,
     );
 
-    final result = readDb.getAuto(LMDBVal.fromUtf8('key'));
+    final result = readDb.get(LMDBVal.fromUtf8('key'));
     expect(result!.toUtf8String(), equals('value'));
 
     // Write should fail
     expect(
-      () =>
-          readDb.putAuto(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2')),
+      () => readDb.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2')),
       throwsA(isA<LMDBException>()),
     );
 
@@ -171,7 +162,7 @@ void main() {
       return;
     }
     final db = LMDB();
-    final writeMapFlags = LMDBFlagSet()..add(MDB_WRITEMAP);
+    final writeMapFlags = {LMDBEnvFlag.writeMap};
 
     db.init(
       testDir.path,
@@ -183,11 +174,11 @@ void main() {
     final txn = db.txnStart();
     try {
       for (int i = 0; i < 1000; i++) {
-        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
+        txn.put(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
-      db.txnCommit(txn);
+      txn.commit();
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     }
 
@@ -205,15 +196,13 @@ void main() {
     );
 
     // Add some test data
-    writeDb.putAuto(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
-    writeDb.putAuto(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
-    writeDb.putAuto(LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
+    writeDb.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+    writeDb.put(LMDBVal.fromUtf8('key2'), LMDBVal.fromUtf8('value2'));
+    writeDb.put(LMDBVal.fromUtf8('key3'), LMDBVal.fromUtf8('value3'));
     writeDb.close();
 
     // Now open multiple read-only instances without locking
-    final noLockFlags = LMDBFlagSet()
-      ..add(MDB_NOLOCK)
-      ..add(MDB_RDONLY);
+    final noLockFlags = {LMDBEnvFlag.noLock, LMDBEnvFlag.readOnly};
 
     // Create multiple readers
     final readers = await Future.wait(
@@ -231,9 +220,9 @@ void main() {
     // Test concurrent reads from all instances
     await Future.wait(
       readers.map((db) async {
-        final result1 = db.getAuto(LMDBVal.fromUtf8('key1'));
-        final result2 = db.getAuto(LMDBVal.fromUtf8('key2'));
-        final result3 = db.getAuto(LMDBVal.fromUtf8('key3'));
+        final result1 = db.get(LMDBVal.fromUtf8('key1'));
+        final result2 = db.get(LMDBVal.fromUtf8('key2'));
+        final result3 = db.get(LMDBVal.fromUtf8('key3'));
 
         expect(result1!.toUtf8String(), equals('value1'));
         expect(result2!.toUtf8String(), equals('value2'));
@@ -249,7 +238,7 @@ void main() {
 
   test('No TLS mode', () async {
     final db = LMDB();
-    final noTLSFlags = LMDBFlagSet()..add(MDB_NOTLS);
+    final noTLSFlags = {LMDBEnvFlag.noTls};
 
     db.init(
       testDir.path,
@@ -262,14 +251,14 @@ void main() {
     for (int i = 0; i < 10; i++) {
       final txn = db.txnStart();
       try {
-        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
-        db.txnCommit(txn);
+        txn.put(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
+        txn.commit();
 
         // Verify the write
-        final result = db.getAuto(LMDBVal.fromUtf8('key$i'));
+        final result = db.get(LMDBVal.fromUtf8('key$i'));
         expect(result!.toUtf8String(), equals('value$i'));
       } catch (e) {
-        db.txnAbort(txn);
+        txn.abort();
         rethrow;
       }
     }
@@ -279,7 +268,7 @@ void main() {
 
   test('Transaction behavior with MDB_NOTLS', () async {
     final db = LMDB();
-    final noTLSFlags = LMDBFlagSet()..add(MDB_NOTLS);
+    final noTLSFlags = {LMDBEnvFlag.noTls};
 
     db.init(
       testDir.path,
@@ -290,26 +279,26 @@ void main() {
     // 1. Single write transaction should work
     final writeTxn = db.txnStart();
     try {
-      db.put(writeTxn, LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
-      db.txnCommit(writeTxn);
+      writeTxn.put(LMDBVal.fromUtf8('key1'), LMDBVal.fromUtf8('value1'));
+      writeTxn.commit();
     } catch (e) {
-      db.txnAbort(writeTxn);
+      writeTxn.abort();
       rethrow;
     }
 
     // 2. Multiple read-only transactions should work with MDB_NOTLS
-    final txn1 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
-    final txn2 = db.txnStart(flags: LMDBFlagSet()..add(MDB_RDONLY));
+    final txn1 = db.txnStart(flags: {LMDBEnvFlag.readOnly});
+    final txn2 = db.txnStart(flags: {LMDBEnvFlag.readOnly});
 
     try {
-      final result1 = db.get(txn1, LMDBVal.fromUtf8('key1'));
-      final result2 = db.get(txn2, LMDBVal.fromUtf8('key1'));
+      final result1 = txn1.get(LMDBVal.fromUtf8('key1'));
+      final result2 = txn2.get(LMDBVal.fromUtf8('key1'));
 
       expect(result1!.toUtf8String(), equals('value1'));
       expect(result2!.toUtf8String(), equals('value1'));
     } finally {
-      db.txnAbort(txn1);
-      db.txnAbort(txn2);
+      txn1.abort();
+      txn2.abort();
     }
 
     db.close();
@@ -317,7 +306,7 @@ void main() {
 
   test('No metadata sync mode', () async {
     final db = LMDB();
-    final noMetaSyncFlags = LMDBFlagSet()..add(MDB_NOMETASYNC);
+    final noMetaSyncFlags = {LMDBEnvFlag.noMetaSync};
 
     db.init(
       testDir.path,
@@ -327,7 +316,7 @@ void main() {
 
     // Perform writes without metadata sync
     for (int i = 0; i < 100; i++) {
-      db.putAuto(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
+      db.put(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
     }
 
     // Force sync
@@ -337,7 +326,7 @@ void main() {
 
   test('Read ahead disabled mode', () async {
     final db = LMDB();
-    final noReadAheadFlags = LMDBFlagSet()..add(MDB_NORDAHEAD);
+    final noReadAheadFlags = {LMDBEnvFlag.noReadAhead};
 
     db.init(
       testDir.path,
@@ -351,13 +340,13 @@ void main() {
 
     // First write all values
     for (var key in keys) {
-      db.putAuto(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8('value'));
+      db.put(LMDBVal.fromUtf8(key), LMDBVal.fromUtf8('value'));
     }
 
     // Then read in random order
     for (int i = 0; i < 50; i++) {
       final randomKey = keys[random.nextInt(keys.length)];
-      final result = db.getAuto(LMDBVal.fromUtf8(randomKey));
+      final result = db.get(LMDBVal.fromUtf8(randomKey));
       expect(result, isNotNull);
     }
 
@@ -366,11 +355,12 @@ void main() {
 
   test('Multiple flag combinations', () async {
     final db = LMDB();
-    final combinedFlags = LMDBFlagSet()
-      ..add(MDB_WRITEMAP)
-      ..add(MDB_NOMETASYNC)
-      ..add(MDB_NORDAHEAD)
-      ..add(MDB_NOSYNC);
+    final combinedFlags = {
+      LMDBEnvFlag.writeMap,
+      LMDBEnvFlag.noMetaSync,
+      LMDBEnvFlag.noReadAhead,
+      LMDBEnvFlag.noSync,
+    };
 
     db.init(
       testDir.path,
@@ -382,11 +372,11 @@ void main() {
     final txn = db.txnStart();
     try {
       for (int i = 0; i < 10000; i++) {
-        db.put(txn, LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
+        txn.put(LMDBVal.fromUtf8('key$i'), LMDBVal.fromUtf8('value$i'));
       }
-      db.txnCommit(txn);
+      txn.commit();
     } catch (e) {
-      db.txnAbort(txn);
+      txn.abort();
       rethrow;
     }
 

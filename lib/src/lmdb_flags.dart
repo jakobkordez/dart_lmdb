@@ -1,112 +1,173 @@
 import 'generated_bindings.dart';
 
-/// A class for managing LMDB flag combinations in a type-safe way.
-///
-/// This class provides methods to combine, check and manipulate LMDB flags
-/// that control various aspects of database behavior. It handles the bitwise
-/// operations internally and provides a clean interface for Dart code.
-///
-/// Example:
-/// ```dart
-/// // Create a custom flag set
-/// final flags = LMDBFlagSet()
-///   ..add(MDB_NOSUBDIR)
-///   ..add(MDB_NOSYNC);
-///
-/// // Or use predefined combinations
-/// final readOnlyFlags = LMDBFlagSet.readOnly;
-/// ```
-class LMDBFlagSet {
-  /// Internal storage for the combined flags
-  int _flags = 0;
+enum LMDBEnvFlag {
+  /// mmap at a fixed address (experimental)
+  fixedMap(MDB_FIXEDMAP),
 
-  /// Creates an empty flag set with no flags set.
-  LMDBFlagSet();
+  /// no environment directory
+  noSubdir(MDB_NOSUBDIR),
 
-  /// Creates a flag set initialized with the provided flags value.
-  ///
-  /// This constructor is useful when you already have a combined flags value
-  /// from native LMDB calls.
-  ///
-  /// [_flags] The pre-combined flags value to initialize with.
-  LMDBFlagSet.fromFlags(this._flags);
+  /// don't fsync after commit
+  noSync(MDB_NOSYNC),
 
-  /// Adds a flag to the set using bitwise OR operation.
-  ///
-  /// [flag] The LMDB flag to add (e.g., MDB_RDONLY, MDB_NOSUBDIR).
-  void add(int flag) => _flags |= flag;
+  /// read only
+  readOnly(MDB_RDONLY),
 
-  /// Removes a flag from the set using bitwise operations.
-  ///
-  /// [flag] The LMDB flag to remove from the set.
-  void remove(int flag) => _flags &= ~flag;
+  /// don't fsync metapage after commit
+  noMetaSync(MDB_NOMETASYNC),
 
-  /// Checks if a specific flag is set in this flag set.
-  ///
-  /// [flag] The LMDB flag to check for.
-  ///
-  /// Returns true if the flag is set, false otherwise.
-  bool contains(int flag) => (_flags & flag) == flag;
+  /// use writable mmap
+  writeMap(MDB_WRITEMAP),
 
-  /// Gets the combined value of all flags in this set.
-  ///
-  /// This value can be directly used in LMDB API calls.
-  ///
-  /// Returns the integer representation of the combined flags.
-  int get value => _flags;
+  /// use asynchronous msync when [writeMap] is used
+  mapAsync(MDB_MAPASYNC),
 
-  /// Creates a flag set for read-only database access.
+  /// tie reader locktable slots to transaction objects instead of to threads
+  noTls(MDB_NOTLS),
+
+  /// don't do any locking, caller must manage their own locks
+  noLock(MDB_NOLOCK),
+
+  /// don't do readahead (no effect on Windows)
+  noReadAhead(MDB_NORDAHEAD),
+
+  /// don't initialize malloc'd memory before writing to datafile
+  noMemInit(MDB_NOMEMINIT),
+
+  /// use the previous snapshot rather than the latest one
+  prevSnapshot(MDB_PREVSNAPSHOT);
+
+  final int value;
+  const LMDBEnvFlag(this.value);
+}
+
+typedef LMDBEnvFlagSet = Set<LMDBEnvFlag>;
+
+extension LMDBEnvFlagSetExtension on LMDBEnvFlagSet {
+  int get value => toList().map((e) => e.value).fold(0, (a, b) => a | b);
+}
+
+enum LMDBDbiFlag {
+  /// use reverse string keys
+  reverseKey(MDB_REVERSEKEY),
+
+  /// use sorted duplicates
+  dupSort(MDB_DUPSORT),
+
+  /// numeric keys in native byte order, either unsigned int or [mdb_size_t]
+  integerKey(MDB_INTEGERKEY),
+
+  /// with [dupSort], sorted dup items have fixed size
+  dupFixed(MDB_DUPFIXED),
+
+  /// with [dupSort], dups are [integerKey]-style integers
+  integerDup(MDB_INTEGERDUP),
+
+  /// with [dupSort], use reverse string dups
+  reverseDup(MDB_REVERSEDUP),
+
+  /// create DB if not already existing
+  create(MDB_CREATE);
+
+  final int value;
+  const LMDBDbiFlag(this.value);
+}
+
+typedef LMDBDbiFlagSet = Set<LMDBDbiFlag>;
+
+extension LMDBDbiFlagSetExtension on LMDBDbiFlagSet {
+  int get value => toList().map((e) => e.value).fold(0, (a, b) => a | b);
+}
+
+enum LMDBWriteFlag {
+  /// don't write if the key already exists
+  noOverwrite(MDB_NOOVERWRITE),
+
+  /// only for [dupSort], don't write if the key and data pair already exist
+  noDupData(MDB_NODUPDATA),
+
+  /// overwrite the current key/data pair
+  current(MDB_CURRENT),
+
+  /// just reserve space for data, don't copy it
+  reserve(MDB_RESERVE),
+
+  /// data is being appended, don't split full pages
+  append(MDB_APPEND),
+
+  /// duplicate data is being appended, don't split full pages
+  appendDup(MDB_APPENDDUP),
+
+  /// store multiple data items in one call
+  multiple(MDB_MULTIPLE);
+
+  final int value;
+  const LMDBWriteFlag(this.value);
+}
+
+typedef LMDBWriteFlagSet = Set<LMDBWriteFlag>;
+
+extension LMDBWriteFlagSetExtension on LMDBWriteFlagSet {
+  int get value => toList().map((e) => e.value).fold(0, (a, b) => a | b);
+}
+
+enum LMDBCopyFlag {
+  /// compact copy: omit free space from copy, and renumber all pages sequentially
+  compact(MDB_CP_COMPACT);
+
+  final int value;
+  const LMDBCopyFlag(this.value);
+}
+
+typedef LMDBCopyFlagSet = Set<LMDBCopyFlag>;
+
+extension LMDBCopyFlagSetExtension on LMDBCopyFlagSet {
+  int get value => toList().map((e) => e.value).fold(0, (a, b) => a | b);
+}
+
+abstract final class LMDBFlagSet {
+  /// Preset [LMDBEnvFlagSet] values for environment open and transactions.
   ///
-  /// This combination uses MDB_RDONLY for read-only access and MDB_NOTLS
-  /// for better thread handling. This is suitable for scenarios where
-  /// multiple readers need to access the database simultaneously without
-  /// any write operations.
+  /// For custom combinations, use a literal set of [LMDBEnvFlag], e.g.
+  /// `{LMDBEnvFlag.readOnly, LMDBEnvFlag.noTls}`.
+
+  /// Preset for read-only database access.
+  ///
+  /// Uses [LMDBEnvFlag.readOnly] and [LMDBEnvFlag.noTls]
+  /// (C API: `MDB_RDONLY`, `MDB_NOTLS`) for typical multi-reader scenarios.
   ///
   /// Important: Read the LMDB documentation thoroughly before using this
   /// flag combination in production.
-  static LMDBFlagSet get readOnly => LMDBFlagSet()
-    ..add(MDB_RDONLY)
-    ..add(MDB_NOTLS);
+  static const readOnly = {LMDBEnvFlag.readOnly, LMDBEnvFlag.noTls};
 
-  /// Creates a flag set for read-only access to a database file in an
-  /// unwritable directory.
+  /// Preset for read-only access to a database file in an unwritable directory.
   ///
-  /// This combination is particularly useful when accessing a database
-  /// from an asset directory or other read-only location. It combines:
-  /// - MDB_RDONLY: For read-only access
-  /// - MDB_NOSUBDIR: Treat the path as the database file itself
-  /// - MDB_NOLOCK: Don't lock the database file
+  /// Combines [LMDBEnvFlag.readOnly], [LMDBEnvFlag.noSubdir],
+  /// and [LMDBEnvFlag.noLock] (`MDB_RDONLY`, `MDB_NOSUBDIR`, `MDB_NOLOCK`).
   ///
   /// This is commonly used in mobile applications where the database
   /// might be bundled with the application in a read-only location.
-  static LMDBFlagSet get readOnlyFromAssets => LMDBFlagSet()
-    ..add(MDB_RDONLY)
-    ..add(MDB_NOSUBDIR)
-    ..add(MDB_NOLOCK);
+  static const readOnlyFromAssets = {
+    LMDBEnvFlag.readOnly,
+    LMDBEnvFlag.noSubdir,
+    LMDBEnvFlag.noLock,
+  };
 
-  /// Creates a flag set optimized for high performance operations.
+  /// Preset optimized for write throughput (weak durability).
   ///
   /// WARNING: This flag combination prioritizes performance over durability.
   /// It provides ACI (Atomicity, Consistency, Isolation) guarantees but NOT
   /// Durability. This means that the most recent transactions might be lost
   /// in case of a system crash.
   ///
-  /// The combination includes:
-  /// - MDB_WRITEMAP: Use writeable memory map
-  /// - MDB_MAPASYNC: Flush asynchronously
-  /// - MDB_NOSYNC: Don't flush system buffers
+  /// Includes [LMDBEnvFlag.writeMap], [LMDBEnvFlag.mapAsync],
+  /// and [LMDBEnvFlag.noSync] (`MDB_WRITEMAP`, `MDB_MAPASYNC`, `MDB_NOSYNC`).
   ///
   /// IMPORTANT: Thoroughly understand the implications and read the LMDB
   /// documentation before using this in production environments.
-  static LMDBFlagSet get highPerformance => LMDBFlagSet()
-    ..add(MDB_WRITEMAP)
-    ..add(MDB_MAPASYNC)
-    ..add(MDB_NOSYNC);
-
-  /// Creates a flag set with default settings.
-  ///
-  /// This provides the most basic and safe configuration with no special
-  /// flags set. It's suitable for general-purpose use where you don't
-  /// need specific optimizations or behavior modifications.
-  static LMDBFlagSet get defaultFlags => LMDBFlagSet();
+  static const highPerformance = {
+    LMDBEnvFlag.writeMap,
+    LMDBEnvFlag.mapAsync,
+    LMDBEnvFlag.noSync,
+  };
 }
